@@ -1,0 +1,5 @@
+[DUMMY]
+fields = [["AGE", "INTEGER"], ["GENDER", "STRING"], ["QUALITY", "INTEGER"]]
+# [27.842360,39.637753,27.941923,39.677070]
+bbox = "None"
+address = 'Bucharest, Romania'
