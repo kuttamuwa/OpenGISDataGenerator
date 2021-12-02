@@ -1,5 +1,7 @@
 [DUMMY]
-fields = [["AGE", "INTEGER"], ["GENDER", "STRING"], ["QUALITY", "INTEGER"]]
-# [27.842360,39.637753,27.941923,39.677070]
-bbox = "None"
+bbox = "None" # [27.842360,39.637753,27.941923,39.677070]
 address = 'Bucharest, Romania'
+network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
+sample_count = 1000
+recursive_count = 3     # how many extra steps you want them to take?
+recursive_percent = 50  # takes %50 for each next step
