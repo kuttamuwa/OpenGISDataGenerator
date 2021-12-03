@@ -11,3 +11,12 @@ footstep_percent = "None"  # percentage of footstep on the segment can be used a
 start_date = "2021-8-03 16:40:21"
 end_date = "2022-12-03 15:40:21"
 date_mixing = "True"  # Random date specified start_date, end_date
+
+[DB]
+host = "127.0.0.1"
+username = "postgres"
+password = "figo1190"
+db = 'postgis_30_sample'
+port = 5432
+table_name = 'points'
+if_exists='replace'  # fail, append

@@ -11,6 +11,7 @@ from mimesis import Person
 from shapely.geometry import Point
 
 from config import settings
+from dummygen import export_shp_fiona_schema
 
 DUMMY_SETTINGS = settings.DUMMY
 ox.config(use_cache=True, log_console=True)
@@ -45,7 +46,7 @@ class DummyDataGenerator:
         _path = os.path.abspath('./output')
         name = 'noname.shp' if self.address is None else f"{self.address.split(',')[0]}.shp"
 
-        self.points.to_file(f'{_path}/{name}')
+        self.points.to_file(f'{_path}/{name}', schema=export_shp_fiona_schema)
 
     def get_graph(self, network_type='all_private'):
         """
@@ -154,3 +155,6 @@ class DummyDataGenerator:
         df = grp.apply(self.add_dummy_fields_grouped)
 
         self.points = df
+
+    def export_db(self, engine, table_name, **kwargs):
+        self.points.to_sql(table_name, con=engine, **kwargs)
