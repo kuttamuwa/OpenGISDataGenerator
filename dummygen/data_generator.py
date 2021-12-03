@@ -1,8 +1,10 @@
 import ast
+from datetime import datetime, timedelta
 import os
 import random
 
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 import osmnx as ox
 from mimesis import Person
@@ -18,7 +20,12 @@ crs = {"init": 'epsg:4326'}  # lat lon
 class DummyDataGenerator:
     bbox = ast.literal_eval(DUMMY_SETTINGS.get('bbox'))
     address = DUMMY_SETTINGS.get('address')
-    distance_delta = 0.9
+    distance_delta = DUMMY_SETTINGS.get('footstep_distance', 50)  # meters
+    avg_speed = 1.4  # pedestrian speed: meter/second
+
+    start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
+    end_date = pd.to_datetime(DUMMY_SETTINGS.get('end_date', datetime.now() + timedelta(hours=10)))
+    date_mixing = ast.literal_eval(DUMMY_SETTINGS.get('date_mixing', True))
 
     dummy_person = Person(locale='tr')
 
@@ -55,12 +62,25 @@ class DummyDataGenerator:
 
         return G
 
+    def init_routing(self):
+        self.graph = ox.speed.add_edge_speeds(self.graph)
+        self.graph = ox.speed.add_edge_travel_times(self.graph)
+
     @staticmethod
     def _point_to_df(points: [Point], data=None):
         geom = gpd.points_from_xy([p.x for p in points], [p.y for p in points], crs=crs)
         gdf = gpd.GeoDataFrame(data=data, geometry=geom, crs=crs)
 
         return gdf
+
+    @classmethod
+    def get_start_date(cls):
+        if cls.date_mixing:
+            start_date = pd.to_datetime(pd.date_range(cls.start_date, cls.end_date, periods=1)[0])
+        else:
+            start_date = cls.start_date
+
+        return start_date
 
     def generate_points_along_line(self):
         """
@@ -70,14 +90,23 @@ class DummyDataGenerator:
         nodes, lines = ox.graph_to_gdfs(self.graph)
         points = []
 
+        adding_minute = self.distance_delta // self.avg_speed
+        start_date = self.get_start_date()
+
         for _, l in lines.iterrows():
+
             distances = np.arange(0, l.geometry.length, self.distance_delta)
             for d in distances:
                 subpoints = l.geometry.interpolate(d)
-                p = {'geometry': subpoints, 'osmid': l.osmid}
+                print(f"first start date : {start_date}")
+                start_date += timedelta(minutes=adding_minute)
+                print(f"sec start date : {start_date}")
+
+                p = {'geometry': subpoints, 'osmid': l.osmid, 'Timestamp': start_date}
                 points.append(p)
 
-            # last_point = l.geometry.boundary[1]  # if end point desired
+            start_date = self.get_start_date()
+
         gdf = gpd.GeoDataFrame(points)
 
         # filter if osmid is list
@@ -124,20 +153,8 @@ class DummyDataGenerator:
 
         return x
 
-    def _add_dummy_fields_grouping(self, use='osmid'):
+    def add_dummy_fields_grouping(self, use='osmid'):
         grp = self.points.groupby(use)
         df = grp.apply(self.add_dummy_fields_grouped)
 
         self.points = df
-
-    def add_x_step(self):
-        """
-        Recursive function
-        :return:
-        """
-        raise NotImplementedError
-        if self.recursive_percent > 100:
-            raise ValueError('Percent cannot exceed 100')
-
-        for _ in range(self.recursive_count):
-            new_sample_len = len(self.points) * self.recursive_percent

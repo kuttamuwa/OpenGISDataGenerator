@@ -8,3 +8,6 @@ recursive_percent = 50  # takes %50 for each next step
 # Only distance or percentage can be used.
 footstep_distance = 50  # minimum footstep distance is 50 meters
 footstep_percent = "None"  # percentage of footstep on the segment can be used also.
+start_date = "2021-8-03 16:40:21"
+end_date = "2022-12-03 15:40:21"
+date_mixing = "True"  # Random date specified start_date, end_date
