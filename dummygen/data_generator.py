@@ -1,14 +1,12 @@
 import ast
+import os
 import random
 
 import geopandas as gpd
 import numpy as np
-
 import osmnx as ox
 from mimesis import Person
 from shapely.geometry import Point
-from shapely.ops import unary_union
-from matplotlib import pyplot as plt
 
 from config import settings
 
@@ -29,8 +27,18 @@ class DummyDataGenerator:
         self.recursive_percent = DUMMY_SETTINGS.get('recursive_percent', 50)
         self.graph = self.get_graph()
 
-        self.points = self.generate_points_along_line()
-        self.add_dummy_fields_grouping()
+        self.points = None
+        # self.add_dummy_fields_grouping()
+
+    def export_points(self):
+        """
+        Export shapefile
+        :return:
+        """
+        _path = os.path.abspath('./output')
+        name = 'noname.shp' if self.address is None else f"{self.address.split(',')[0]}.shp"
+
+        self.points.to_file(f'{_path}/{name}')
 
     def get_graph(self, network_type='all_private'):
         """
@@ -74,6 +82,7 @@ class DummyDataGenerator:
 
         # filter if osmid is list
         gdf = gdf[gdf['osmid'].apply(lambda x: str(x).isdigit())]
+        gdf.drop_duplicates('geometry', inplace=True)
 
         self.points = gdf
 
@@ -108,16 +117,18 @@ class DummyDataGenerator:
         self.points['Quality'] = [random.randint(0, 5) for _ in range(_len)]
 
     def add_dummy_fields_grouped(self, x):
-        x['First Name'] = self.dummy_person.first_name
+        x['First Name'] = self.dummy_person.first_name()
         x['Last Name'] = self.dummy_person.last_name()
+        x['Age'] = self.dummy_person.age(16, 66)
+        x['Quality'] = random.randint(0, 5)
 
         return x
 
-    def add_dummy_fields_grouping(self, use='osmid'):
+    def _add_dummy_fields_grouping(self, use='osmid'):
         grp = self.points.groupby(use)
         df = grp.apply(self.add_dummy_fields_grouped)
 
-        self.points.merge(df)
+        self.points = df
 
     def add_x_step(self):
         """
