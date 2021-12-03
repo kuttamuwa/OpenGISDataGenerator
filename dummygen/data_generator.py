@@ -98,14 +98,10 @@ class DummyDataGenerator:
             distances = np.arange(0, l.geometry.length, self.distance_delta)
             for d in distances:
                 subpoints = l.geometry.interpolate(d)
-                print(f"first start date : {start_date}")
                 start_date += timedelta(minutes=adding_minute)
-                print(f"sec start date : {start_date}")
 
                 p = {'geometry': subpoints, 'osmid': l.osmid, 'Timestamp': start_date}
                 points.append(p)
-
-            start_date = self.get_start_date()
 
         gdf = gpd.GeoDataFrame(points)
 
