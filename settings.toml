@@ -5,3 +5,6 @@ network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_s
 sample_count = 1000
 recursive_count = 3     # how many extra steps you want them to take?
 recursive_percent = 50  # takes %50 for each next step
+# Only distance or percentage can be used.
+footstep_distance = 50  # minimum footstep distance is 50 meters
+footstep_percent = "None"  # percentage of footstep on the segment can be used also.
