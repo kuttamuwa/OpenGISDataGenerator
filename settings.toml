@@ -6,7 +6,7 @@ sample_count = 1000
 recursive_count = 3     # how many extra steps you want them to take?
 recursive_percent = 50  # takes %50 for each next step
 # Only distance or percentage can be used.
-footstep_distance = 5  # minimum footstep distance is X meters
+footstep_distance = 50  # minimum footstep distance is X meters
 footstep_percent = "None"  # percentage of footstep on the segment can be used also.
 start_date = "2021-8-03 16:40:21"
 end_date = "2022-12-03 15:40:21"
@@ -18,5 +18,6 @@ username = "postgres"
 password = "figo1190"
 db = 'postgis_30_sample'
 port = 5432
-table_name = 'points'
+points_table_name = 'points'
+lines_table_name = 'lines'
 if_exists='replace'  # fail, append

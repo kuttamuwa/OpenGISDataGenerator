@@ -11,6 +11,7 @@ from mimesis import Person
 from shapely.geometry import Point
 
 from config import settings
+from db.connector import db, points_table_name, lines_table_name, if_exists
 from dummygen import export_shp_fiona_schema
 
 DUMMY_SETTINGS = settings.DUMMY
@@ -21,7 +22,7 @@ crs = {"init": 'epsg:3857'}  # x y
 class DummyDataGenerator:
     bbox = ast.literal_eval(DUMMY_SETTINGS.get('bbox'))
     address = DUMMY_SETTINGS.get('address')
-    distance_delta = DUMMY_SETTINGS.get('footstep_distance', 5)  # meters
+    distance_delta = DUMMY_SETTINGS.get('footstep_distance', 50)  # meters
     avg_speed = 1.4  # pedestrian speed: meter/second
 
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
@@ -37,9 +38,8 @@ class DummyDataGenerator:
 
         self.points = None
         self.lines_gdf = None
-        # self.add_dummy_fields_grouping()
 
-    def export_shapefile(self):
+    def export_points_shapefile(self):
         """
         Export shapefile
         :return:
@@ -92,6 +92,7 @@ class DummyDataGenerator:
         :return:
         """
         lines = ox.graph_to_gdfs(self.graph, nodes=False)
+        lines.drop_duplicates('geometry', inplace=True)
         lines['length'] = lines['geometry'].length
         lines = lines[lines['length'] > self.distance_delta]  # minimum value
 
@@ -162,11 +163,14 @@ class DummyDataGenerator:
 
         return x
 
-    def add_dummy_fields_grouping(self, use='osmid'):
+    def add_dummy_fields_grouping(self, use='wayid'):
         grp = self.points.groupby(use)
         df = grp.apply(self.add_dummy_fields_grouped)
 
         self.points = df
 
-    def export_db(self, engine, table_name, **kwargs):
-        self.points.to_postgis(table_name, con=engine, **kwargs)
+    def export_points(self):
+        self.points.to_postgis(points_table_name, con=db, if_exists=if_exists)
+
+    def export_lines(self):
+        self.lines_gdf.to_postgis(lines_table_name, con=db, if_exists=if_exists)
