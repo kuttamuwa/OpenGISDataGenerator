@@ -15,13 +15,13 @@ from dummygen import export_shp_fiona_schema
 
 DUMMY_SETTINGS = settings.DUMMY
 ox.config(use_cache=True, log_console=True)
-crs = {"init": 'epsg:4326'}  # lat lon
+crs = {"init": 'epsg:3857'}  # x y
 
 
 class DummyDataGenerator:
     bbox = ast.literal_eval(DUMMY_SETTINGS.get('bbox'))
     address = DUMMY_SETTINGS.get('address')
-    distance_delta = DUMMY_SETTINGS.get('footstep_distance', 50)  # meters
+    distance_delta = DUMMY_SETTINGS.get('footstep_distance', 5)  # meters
     avg_speed = 1.4  # pedestrian speed: meter/second
 
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
@@ -61,6 +61,7 @@ class DummyDataGenerator:
         else:
             raise ValueError('bbox veya adres parametresi doldurulmalıdır')
 
+        G = ox.project_graph(G, to_crs=crs['init'])
         return G
 
     def init_routing(self):
@@ -74,6 +75,18 @@ class DummyDataGenerator:
 
         return gdf
 
+    def add_length(self, lines: gpd.GeoDataFrame, geom_col='geometry'):
+        """
+        Add length of line to LENGTH_GEO
+        :param lines:
+        :param geom_col:
+        :return:
+        """
+        # todo: shapely calculate length
+
+        raise NotImplementedError
+
+
     @classmethod
     def get_start_date(cls):
         if cls.date_mixing:
@@ -85,36 +98,42 @@ class DummyDataGenerator:
 
     def generate_points_along_line(self):
         """
+        Generate points along lines and sum up.
 
         :return:
         """
-        nodes, lines = ox.graph_to_gdfs(self.graph)
+        lines = ox.graph_to_gdfs(self.graph, nodes=False)
+        lines['length'] = lines['geometry'].length
+        lines = lines[lines['length'] > self.distance_delta]  # minimum value
+
         points = []
 
-        adding_minute = self.distance_delta // self.avg_speed
-        start_date = self.get_start_date()
+        adding_seconds = self.distance_delta // self.avg_speed
+        # todo: zamanlar eklenmiş bir halde gelmiyor, aynı isimde olanlar karışık tarihli geliyor.
 
         for _, l in lines.iterrows():
-
+            start_date = self.get_start_date()
             distances = np.arange(0, l.geometry.length, self.distance_delta)
             for d in distances:
                 subpoints = l.geometry.interpolate(d)
-                start_date += timedelta(minutes=adding_minute)
+                start_date += timedelta(seconds=adding_seconds)
 
-                p = {'geometry': subpoints, 'osmid': l.osmid, 'Timestamp': start_date}
+                p = {'geometry': subpoints, 'wayid': l.osmid, 'Timestamp': start_date}
                 points.append(p)
 
-        gdf = gpd.GeoDataFrame(points)
+        gdf = gpd.GeoDataFrame(points, crs=crs['init'])
 
         # filter if osmid is list
         gdf = gdf[gdf['osmid'].apply(lambda x: str(x).isdigit())]
         gdf.drop_duplicates('geometry', inplace=True)
+        gdf.reset_index(inplace=True)
+        gdf.rename(columns={'index': 'ROWID'})
 
         self.points = gdf
 
         return gdf
 
-    def generate_random_points(self) -> gpd.GeoDataFrame:
+    def generate_random_points_in_area(self) -> gpd.GeoDataFrame:
         """
         Downloads OSM Data and generate random points as pandas DataFrame
         :return:
@@ -157,4 +176,4 @@ class DummyDataGenerator:
         self.points = df
 
     def export_db(self, engine, table_name, **kwargs):
-        self.points.to_sql(table_name, con=engine, **kwargs)
+        self.points.to_postgis(table_name, con=engine, **kwargs)
