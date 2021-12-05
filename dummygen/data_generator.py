@@ -1,12 +1,12 @@
 import ast
-from datetime import datetime, timedelta
 import os
 import random
+from datetime import datetime, timedelta
 
 import geopandas as gpd
-import pandas as pd
 import numpy as np
 import osmnx as ox
+import pandas as pd
 from mimesis import Person
 from shapely.geometry import Point
 
@@ -36,9 +36,10 @@ class DummyDataGenerator:
         self.graph = self.get_graph()
 
         self.points = None
+        self.lines_gdf = None
         # self.add_dummy_fields_grouping()
 
-    def export_points(self):
+    def export_shapefile(self):
         """
         Export shapefile
         :return:
@@ -107,10 +108,10 @@ class DummyDataGenerator:
         lines = lines[lines['length'] > self.distance_delta]  # minimum value
 
         points = []
+        liness = []
 
         adding_seconds = self.distance_delta // self.avg_speed
         # todo: zamanlar eklenmiş bir halde gelmiyor, aynı isimde olanlar karışık tarihli geliyor.
-
         for _, l in lines.iterrows():
             start_date = self.get_start_date()
             distances = np.arange(0, l.geometry.length, self.distance_delta)
@@ -120,14 +121,19 @@ class DummyDataGenerator:
 
                 p = {'geometry': subpoints, 'wayid': l.osmid, 'Timestamp': start_date}
                 points.append(p)
+            liness.append(l)
 
         gdf = gpd.GeoDataFrame(points, crs=crs['init'])
-
         # filter if osmid is list
-        gdf = gdf[gdf['osmid'].apply(lambda x: str(x).isdigit())]
+        gdf = gdf[gdf['wayid'].apply(lambda x: str(x).isdigit())]
         gdf.drop_duplicates('geometry', inplace=True)
         gdf.reset_index(inplace=True)
-        gdf.rename(columns={'index': 'ROWID'})
+        gdf.rename(columns={'index': 'ROWID'}, inplace=True)
+
+        # lines
+        lines_gdf = gpd.GeoDataFrame(lines, crs=crs['init'])
+        lines_gdf.drop(columns=[i for i in lines_gdf.columns if i not in ('length', 'geometry', 'osmid')])
+        self.lines_gdf = gpd.GeoDataFrame(lines, crs=crs['init'])
 
         self.points = gdf
 
