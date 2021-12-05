@@ -32,8 +32,8 @@ class DummyDataGenerator:
     dummy_person = Person(locale='tr')
 
     def __init__(self):
-        self.recursive_count = DUMMY_SETTINGS.get('recursive_count', 2)
-        self.recursive_percent = DUMMY_SETTINGS.get('recursive_percent', 50)
+        # self.recursive_count = DUMMY_SETTINGS.get('recursive_count', 2)
+        # self.recursive_percent = DUMMY_SETTINGS.get('recursive_percent', 50)
         self.graph = self.get_graph()
 
         self.points = None
