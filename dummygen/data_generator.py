@@ -76,18 +76,6 @@ class DummyDataGenerator:
 
         return gdf
 
-    def add_length(self, lines: gpd.GeoDataFrame, geom_col='geometry'):
-        """
-        Add length of line to LENGTH_GEO
-        :param lines:
-        :param geom_col:
-        :return:
-        """
-        # todo: shapely calculate length
-
-        raise NotImplementedError
-
-
     @classmethod
     def get_start_date(cls):
         if cls.date_mixing:
@@ -111,7 +99,6 @@ class DummyDataGenerator:
         liness = []
 
         adding_seconds = self.distance_delta // self.avg_speed
-        # todo: zamanlar eklenmiş bir halde gelmiyor, aynı isimde olanlar karışık tarihli geliyor.
         for _, l in lines.iterrows():
             start_date = self.get_start_date()
             distances = np.arange(0, l.geometry.length, self.distance_delta)
