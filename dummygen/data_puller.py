@@ -1,4 +1,5 @@
 import ast
+import warnings
 from datetime import datetime
 from datetime import timedelta
 
@@ -8,6 +9,7 @@ import pandas as pd
 
 from config import settings
 from db.connector import db
+from dummygen.data_generator import DummyDataManipulator
 
 DUMMY_SETTINGS = settings.DUMMY
 
@@ -24,12 +26,14 @@ class DataStore:
 
     """
     graph = None
+
     crs = DUMMY_SETTINGS.get('crs')
     bbox = ast.literal_eval(DUMMY_SETTINGS.get('bbox'))
     address = DUMMY_SETTINGS.get('address')
     reload_data = ast.literal_eval(DUMMY_SETTINGS.get('reload', False))
     network_type = DUMMY_SETTINGS.get('network_type', 'all_private')
-    routing = ast.literal_eval(DUMMY_SETTINGS.get('routing', False))
+    routing = DUMMY_SETTINGS.get('routing', False)
+    count = DUMMY_SETTINGS.get('count', 1000)
 
     # time params
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
@@ -41,7 +45,7 @@ class DataStore:
        Downloads OSM Data and generate random points as pandas DataFrame
        :return:
         """
-
+        print("Loading graph..")
         if cls.bbox:
             G = ox.graph_from_bbox(*cls.bbox, network_type=network_type)
         elif cls.address:
@@ -50,18 +54,13 @@ class DataStore:
             raise ValueError('bbox veya adres parametresi doldurulmalıdır')
 
         G = ox.project_graph(G, cls.crs)
-        return G
+        print("Graph is loaded.")
+        cls.graph = G
 
     @classmethod
     def init_routing(cls):
         cls.graph = ox.speed.add_edge_speeds(cls.graph)
         cls.graph = ox.speed.add_edge_travel_times(cls.graph)
-
-    def __new__(cls):
-        if cls.graph is None:
-            cls.graph = cls.download_graph(network_type=cls.network_type)
-        if cls.routing:
-            cls.init_routing()
 
     def __init__(self):
         self.points = None
@@ -72,16 +71,16 @@ class DataStore:
         self.load()
 
     def load(self):
-        self._load_points()
-        self._load_lines()
-        self._load_polygons()
+        try:
+            self._load_points()
+            self._load_lines()
+            # self._load_polygons()  # Not Implemented
 
-    def set_lines_from_db(self):
-        """
-
-        :return:
-        """
-        pass
+        except Exception as err:
+            warnings.warn("Uncompatibility issues around data. Downloading again... \n"
+                          f"Error : {err}")
+            self.download_graph()
+            # self.load()
 
     def download_lines(self):
         """
@@ -96,34 +95,57 @@ class DataStore:
 
             return lines
 
-    def set_random_points_in_area(self) -> gpd.GeoDataFrame:
+    def generate_random_points_in_area(self, snap=True) -> gpd.GeoDataFrame:
         """
         Downloads OSM Data and generate random points as pandas DataFrame
         :return:
         """
 
-        Gp = ox.project_graph(self.graph)
-        count = DUMMY_SETTINGS.get('sample_count', 1000)
-        random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), count)
+        Gp = ox.project_graph(self.graph, to_crs=self.crs)
+        random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
+        random_points = gpd.GeoDataFrame(random_points, geometry='geometry')
+        random_points = DummyDataManipulator.add_dummy_fields(random_points)
+
+        # if snap:
+        #     print("Snapping points..")
+        #     for _, l in self.lines.iterrows():
+        #         geom = l.geometry
+        #         geom.interpolate()
 
         self.points = random_points
         return random_points
 
+    def download_poi(self):
+        raise NotImplementedError
+
     def _load_lines(self):
+        print("Lines are loading..")
         try:
-            self.points = gpd.read_postgis("SELECT * FROM LINES", con=db, crs=self.crs)
+            if self.lines is None:
+                self.lines = gpd.read_postgis("SELECT * FROM LINES", con=db, crs=self.crs, geom_col='geometry')
         except Exception:
             self.download_lines()
 
     def _load_points(self):
+        print("Points are loading..")
         try:
-            self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs)
+            if self.points is None:
+                self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs, geom_col='geometry')
         except Exception:
-            self.set_random_points_in_area()
+            self.generate_random_points_in_area()
 
     def _load_polygons(self):
         """
         POI
         :return: 
         """
-        pass
+        # print("Polygons are loading..")
+        try:
+            if self.polygons is None:
+                self.polygons = gpd.read_postgis("SELECT * FROM POLYGONS", con=db, crs=self.crs, geom_col='geometry')
+        except Exception:
+            self.download_poi()
+
+
+ds = DataStore()
+dummy = DummyDataManipulator()

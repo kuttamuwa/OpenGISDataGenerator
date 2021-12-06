@@ -23,15 +23,15 @@ class DummyDataManipulator:
     date_mixing = ast.literal_eval(DUMMY_SETTINGS.get('date_mixing', True))
 
     # distances
-    random_distance = ast.literal_eval(DUMMY_SETTINGS.get('constant', True))
-    minimum_distance = ast.literal_eval(DUMMY_SETTINGS.get('minimum_distance'))
-    maximum_distance = ast.literal_eval(DUMMY_SETTINGS.get('maximum_distance'))
+    random_distance = DUMMY_SETTINGS.get('constant', True)
+    minimum_distance = DUMMY_SETTINGS.get('minimum_distance')
+    maximum_distance = DUMMY_SETTINGS.get('maximum_distance')
     avg_speed = DUMMY_SETTINGS.get('avg_speed', 1.4)
 
     # person
     dummy_person = Person(locale='tr')
-    min_age = ast.literal_eval(DUMMY_SETTINGS.get('min_age', 16))
-    max_age = ast.literal_eval(DUMMY_SETTINGS.get('max_age', 70))
+    min_age = DUMMY_SETTINGS.get('min_age', 16)
+    max_age = DUMMY_SETTINGS.get('max_age', 70)
 
     @classmethod
     def random_date(cls):
@@ -42,22 +42,15 @@ class DummyDataManipulator:
 
         return start_date
 
-    def add_dummy_fields_grouped(self, x):
-        _gender = random.choice([Gender.MALE, Gender.FEMALE])
-        x['First Name'] = self.dummy_person.first_name(gender=_gender)
-        x['PersonID'] = uuid.uuid4()  # todo: test et
-        x['Last Name'] = self.dummy_person.last_name(gender=_gender)
-        x['Age'] = self.dummy_person.age(self.min_age, self.max_age)
-        x['Quality'] = random.randint(0, 5)
-        x['Gender'] = _gender
+    @classmethod
+    def add_dummy_fields(cls, points: gpd.GeoDataFrame):
+        points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
+        points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
+        points['Age'] = [cls.dummy_person.age(cls.min_age, cls.max_age) for _ in range(len(points))]
+        points['Quality'] = [random.randint(0, 5) for _ in range(len(points))]
+        points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]) for _ in range(len(points))]
 
-        return x
-
-    def add_dummy_fields(self, points: gpd.GeoDataFrame, use='wayid'):
-        grp = points.groupby(use)
-        df = grp.apply(self.add_dummy_fields_grouped)
-
-        return df
+        return points
 
     def generate_points_along_line(self, lines: gpd.GeoDataFrame):
         """

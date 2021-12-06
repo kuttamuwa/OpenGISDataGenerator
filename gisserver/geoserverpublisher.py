@@ -27,13 +27,3 @@ class GeoServerPublisher(BaseGISServer):
 
     def read_config(self):
         super().read_config()
-
-    def publish_elecable(self, gpkg: str):
-        """
-        This is different than ESRI side. Doesn't work with dataframe, yet. Only table name
-        :param gpkg: Geopackage path
-        :return:
-        """
-        print("Elektrik hatti geoserver icin yayimlandi")
-        # todo: handle later
-        return self.publisher
