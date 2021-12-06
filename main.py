@@ -14,10 +14,12 @@ import argparse
 agp = argparse.ArgumentParser()
 agp.add_argument('config', help='settings.toml dosyasını yükle')
 
+# publisher = GeoServerPublisher()
+
 
 if __name__ == '__main__':
     dummy = DummyDataGenerator()
-    dummy.generate_points_along_line()
+    dummy.generate_points_along_line_osmnx()
     dummy.add_dummy_fields_grouping()
 
     dummy.export_points()

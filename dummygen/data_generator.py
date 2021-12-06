@@ -1,6 +1,7 @@
 import ast
 import os
 import random
+import uuid
 from datetime import datetime, timedelta
 
 import geopandas as gpd
@@ -28,7 +29,7 @@ class DummyDataGenerator:
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
     end_date = pd.to_datetime(DUMMY_SETTINGS.get('end_date', datetime.now() + timedelta(hours=10)))
     date_mixing = ast.literal_eval(DUMMY_SETTINGS.get('date_mixing', True))
-
+    random_choice = ast.literal_eval(DUMMY_SETTINGS.get('constant', True))
     dummy_person = Person(locale='tr')
 
     def __init__(self):
@@ -85,10 +86,19 @@ class DummyDataGenerator:
 
         return start_date
 
-    def generate_points_along_line(self):
-        """
-        Generate points along lines and sum up.
+    def generate_points_along_line_db(self):
+        raise NotImplementedError
 
+    def get_lines_from_db(self):
+        """
+
+        :return:
+        """
+        pass
+
+    def get_lines_by_osmnx(self):
+        """
+        Get lines from osmnx
         :return:
         """
         lines = ox.graph_to_gdfs(self.graph, nodes=False)
@@ -96,12 +106,23 @@ class DummyDataGenerator:
         lines['length'] = lines['geometry'].length
         lines = lines[lines['length'] > self.distance_delta]  # minimum value
 
+        return lines
+
+    def generate_points_along_line_osmnx(self):
+        """
+        Generate points along lines and sum up.
+
+        :return:
+        """
+        lines = self.get_lines_by_osmnx()
+
         points = []
         liness = []
 
         adding_seconds = self.distance_delta // self.avg_speed
         for _, l in lines.iterrows():
             start_date = self.get_start_date()
+            # todo: distances should be random
             distances = np.arange(0, l.geometry.length, self.distance_delta)
             for d in distances:
                 subpoints = l.geometry.interpolate(d)
@@ -150,13 +171,17 @@ class DummyDataGenerator:
         """
         # dummy names
         _len = len(self.points)
+        # todo: gender parametresi koyalim enum random olsun onu da sütuna bas
+        self.points['PersonID'] = uuid.uuid4()  # todo: test et
         self.points['First Name'] = [self.dummy_person.first_name() for _ in range(_len)]
         self.points['Last Name'] = [self.dummy_person.last_name() for _ in range(_len)]
         self.points['Age'] = [self.dummy_person.age(16, 66) for _ in range(_len)]
         self.points['Quality'] = [random.randint(0, 5) for _ in range(_len)]
 
     def add_dummy_fields_grouped(self, x):
+        # todo: gender parametresi koyalim enum random olsun onu da sütuna bas
         x['First Name'] = self.dummy_person.first_name()
+        self.points['PersonID'] = uuid.uuid4()  # todo: test et
         x['Last Name'] = self.dummy_person.last_name()
         x['Age'] = self.dummy_person.age(16, 66)
         x['Quality'] = random.randint(0, 5)
