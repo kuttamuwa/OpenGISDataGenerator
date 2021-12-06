@@ -1,13 +1,13 @@
 import ast
+from datetime import datetime
 from datetime import timedelta
 
 import geopandas as gpd
-import numpy as np
 import osmnx as ox
 import pandas as pd
-from datetime import datetime
 
 from config import settings
+from db.connector import db
 
 DUMMY_SETTINGS = settings.DUMMY
 
@@ -24,7 +24,6 @@ class DataStore:
 
     """
     graph = None
-
     crs = DUMMY_SETTINGS.get('crs')
     bbox = ast.literal_eval(DUMMY_SETTINGS.get('bbox'))
     address = DUMMY_SETTINGS.get('address')
@@ -35,19 +34,6 @@ class DataStore:
     # time params
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
     end_date = pd.to_datetime(DUMMY_SETTINGS.get('end_date', datetime.now() + timedelta(hours=10)))
-
-    def __new__(cls):
-        if cls.graph is None:
-            cls.graph = cls.download_graph(network_type=cls.network_type)
-        if cls.routing:
-            cls.init_routing()
-
-    def __init__(self):
-        self.graph = self.download_graph()
-
-        self.points = None
-        self.lines = None
-        self.polygons = None
 
     @classmethod
     def download_graph(cls, network_type='all_private'):
@@ -71,6 +57,25 @@ class DataStore:
         cls.graph = ox.speed.add_edge_speeds(cls.graph)
         cls.graph = ox.speed.add_edge_travel_times(cls.graph)
 
+    def __new__(cls):
+        if cls.graph is None:
+            cls.graph = cls.download_graph(network_type=cls.network_type)
+        if cls.routing:
+            cls.init_routing()
+
+    def __init__(self):
+        self.points = None
+        self.lines = None
+        self.polygons = None
+
+        # load data
+        self.load()
+
+    def load(self):
+        self._load_points()
+        self._load_lines()
+        self._load_polygons()
+
     def set_lines_from_db(self):
         """
 
@@ -78,7 +83,7 @@ class DataStore:
         """
         pass
 
-    def set_lines_by_osmnx(self):
+    def download_lines(self):
         """
         Get lines from osmnx
         :return:
@@ -103,3 +108,22 @@ class DataStore:
 
         self.points = random_points
         return random_points
+
+    def _load_lines(self):
+        try:
+            self.points = gpd.read_postgis("SELECT * FROM LINES", con=db, crs=self.crs)
+        except Exception:
+            self.download_lines()
+
+    def _load_points(self):
+        try:
+            self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs)
+        except Exception:
+            self.set_random_points_in_area()
+
+    def _load_polygons(self):
+        """
+        POI
+        :return: 
+        """
+        pass

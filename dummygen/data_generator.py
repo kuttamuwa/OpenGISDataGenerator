@@ -7,6 +7,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from mimesis import Person
+from mimesis.enums import Gender
 
 from config import settings
 
@@ -29,6 +30,8 @@ class DummyDataManipulator:
 
     # person
     dummy_person = Person(locale='tr')
+    min_age = ast.literal_eval(DUMMY_SETTINGS.get('min_age', 16))
+    max_age = ast.literal_eval(DUMMY_SETTINGS.get('max_age', 70))
 
     @classmethod
     def random_date(cls):
@@ -40,16 +43,17 @@ class DummyDataManipulator:
         return start_date
 
     def add_dummy_fields_grouped(self, x):
-        # todo: gender parametresi koyalim enum random olsun onu da sütuna bas
-        x['First Name'] = self.dummy_person.first_name()
+        _gender = random.choice([Gender.MALE, Gender.FEMALE])
+        x['First Name'] = self.dummy_person.first_name(gender=_gender)
         x['PersonID'] = uuid.uuid4()  # todo: test et
-        x['Last Name'] = self.dummy_person.last_name()
-        x['Age'] = self.dummy_person.age(16, 66)
+        x['Last Name'] = self.dummy_person.last_name(gender=_gender)
+        x['Age'] = self.dummy_person.age(self.min_age, self.max_age)
         x['Quality'] = random.randint(0, 5)
+        x['Gender'] = _gender
 
         return x
 
-    def add_dummy_fields_grouping(self, points: gpd.GeoDataFrame, use='wayid'):
+    def add_dummy_fields(self, points: gpd.GeoDataFrame, use='wayid'):
         grp = points.groupby(use)
         df = grp.apply(self.add_dummy_fields_grouped)
 
