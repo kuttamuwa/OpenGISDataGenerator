@@ -3,16 +3,15 @@ bbox = "None" # [27.842360,39.637753,27.941923,39.677070]
 address = 'Bucharest, Romania'
 network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
 sample_count = 1000
-# recursive_count = 3     # how many extra steps you want them to take?
-# recursive_percent = 50  # takes %50 for each next step
-# Only distance or percentage can be used.
-footstep_distance = 50  # minimum footstep distance is X meters
+minimum_distance = 50  # minimum footstep distance is X meters
+maximum_distance = 120 #3 max... footstep
+avg_speed = 1.4 # pedestrian
 constant = "False" # means random
-# footstep_percent = "None"  # percentage of footstep on the segment can be used also.
 start_date = "2021-8-03 16:40:21"
 end_date = "2022-12-03 15:40:21"
 date_mixing = "True"  # Random date specified start_date, end_date
 reload = "False"  # Downloads OSM data again if set True
+crs = "epsg:3857"
 
 [DB]
 host = "127.0.0.1"
@@ -22,7 +21,7 @@ db = 'postgis_30_sample'
 port = 5432
 points_table_name = 'points'
 lines_table_name = 'lines'
-if_exists='replace'  # fail, append
+if_exists='append'  # fail, append
 
 [GEOSERVER]
 [LIVE]
