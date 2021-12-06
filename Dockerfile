@@ -15,7 +15,11 @@ RUN wget \
     && bash Miniconda3-latest-Linux-x86_64.sh -b \
     && rm -f Miniconda3-latest-Linux-x86_64.sh
 RUN conda --version
+RUN conda config --prepend channels conda-forge
+RUN conda install -c conda-forge python=3.10
 
-RUN conda env create --file req.yml python=3.10
+RUN conda env create --name oxenv --file req.yml python=3.10
+RUN source activate oxenv
+
 COPY . .
 CMD ["python", "main.py"]

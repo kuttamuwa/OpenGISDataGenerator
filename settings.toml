@@ -21,3 +21,13 @@ port = 5432
 points_table_name = 'points'
 lines_table_name = 'lines'
 if_exists='replace'  # fail, append
+
+[GEOSERVER]
+[LIVE]
+host="http://84.239.34.36:8080/geoserver"
+username = "admin"
+password = "Geopass"
+[TEST]
+host="http://127.0.0.1:8080/geoserver"
+username = "admin"
+password = "Geopass"

@@ -1,0 +1,17 @@
+name: ox
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - osmnx=1.1.2
+  - pandas
+  - sqlalchemy
+  - dynaconf
+  - geopandas
+  - geoalchemy2
+  - psycopg2
+  - mimesis
+  - shapely
+
+
+prefix: C:\Users\l4712\.conda\envs\ox

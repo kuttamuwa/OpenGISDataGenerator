@@ -9,6 +9,10 @@ Purpose: Collects
 
 """
 from dummygen.data_generator import DummyDataGenerator
+import argparse
+
+agp = argparse.ArgumentParser()
+agp.add_argument('config', help='settings.toml dosyasını yükle')
 
 
 if __name__ == '__main__':
