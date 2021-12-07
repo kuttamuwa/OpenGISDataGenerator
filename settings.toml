@@ -1,20 +1,20 @@
 [DUMMY]
-bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # SHOULD BE LAT, LON IF YOU USE OSM
+# bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # SHOULD BE LAT, LON IF YOU USE OSM
 address = 'Bucharest, Romania'
 network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
-sample_count = 1000
-minimum_distance = 50  # minimum footstep distance is X meters
-maximum_distance = 120 #3 max... footstep
-avg_speed = 1.4 # pedestrian
-constant = "False" # means random
+sample_count = 1000  # how many static points should be added?
+minimum_distance = 50  # minimum footstep meters
+maximum_distance = 120 # max footstep meters
+avg_speed = 1.4 # pedestrian speed: m/s
+constant = "False" # means random if set False
 start_date = "2019-8-03 16:40:21"
 end_date = "2021-12-03 15:40:21"
-date_mixing = "True"  # Random date specified start_date, end_date
+date_mixing = "True"  # Generate random date specified start_date-end_date or assign each as start_date
 reload = "True"  # points data will be generated again AFTER clean table if set True
-crs = "epsg:3857"
+crs = "epsg:3857"  # coordinate system
 recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
-repeated_times = 3  #
-use_osmnx = "False"  # Downloads data if set True, generates random points using bbox if set False
+repeated_times = 3  # how many times should we duplicate?
+use_osmnx = "True"  # Downloads data if set True, generates random points using bbox if set False
 
 [DB]
 host = "127.0.0.1"

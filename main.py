@@ -13,8 +13,8 @@ from dummygen.data_puller import DataStore
 import argparse
 
 
-agp = argparse.ArgumentParser()
-agp.add_argument('config', help='settings.toml dosyasını yükle')
+# agp = argparse.ArgumentParser()
+# agp.add_argument('config', help='settings.toml dosyasını yükle')
 
 if __name__ == '__main__':
     dummy = DummyDataManipulator()

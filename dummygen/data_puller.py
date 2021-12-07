@@ -8,10 +8,12 @@ import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 from shapely.geometry import Point
+from sqlalchemy.exc import ProgrammingError
 
 from config import settings
 from db.connector import db, if_exists
 from dummygen.data_generator import DummyDataManipulator
+from errors.configerr import OSMNXMustbeTrue
 
 DUMMY_SETTINGS = settings.DUMMY
 
@@ -50,21 +52,24 @@ class DataStore:
        Downloads OSM Data and generate random points as pandas DataFrame
        :return:
         """
-        if cls.graph is None and cls.use_osmnx:
-            print("Loading graph..")
-            if cls.bbox:
-                G = ox.graph_from_bbox(*cls.bbox, network_type=network_type)
-            elif cls.address:
-                G = ox.graph_from_place(cls.address, network_type=network_type)
-            else:
-                raise ValueError('bbox veya adres parametresi doldurulmalıdır')
+        try:
+            if cls.graph is None and cls.use_osmnx:
+                print("Loading graph..")
+                if cls.bbox:
+                    G = ox.graph_from_bbox(*cls.bbox, network_type=network_type)
+                elif cls.address:
+                    G = ox.graph_from_place(cls.address, network_type=network_type)
+                else:
+                    raise ValueError('bbox veya adres parametresi doldurulmalıdır')
 
-            print("Graph is created. Now projecting..")
-            G = ox.project_graph(G, to_crs=cls.crs)
-            cls.graph = G
-            print("Graph is loaded.")
-        else:
-            print("Graph is already loaded or not going to use !")
+                print("Graph is created. Now projecting..")
+                G = ox.project_graph(G, to_crs=cls.crs)
+                cls.graph = G
+                print("Graph is loaded.")
+            else:
+                print("Graph is already loaded or not going to use !")
+        except ConnectionError:
+            raise ConnectionError("Internet bağlantınızı kontrol ediniz !")
 
     @classmethod
     def init_routing(cls):
@@ -91,12 +96,16 @@ class DataStore:
         :return:
         """
         if self.lines is None:
+            if self.graph is None:
+                raise OSMNXMustbeTrue("OSMNX set cannot be False if there is no data ! ")
+
             print("Lines are downloading..")
             lines = ox.graph_to_gdfs(self.graph, nodes=False)
             lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
                        inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
             lines['length'] = lines['geometry'].length
+            lines = lines[lines['length'] > DUMMY_SETTINGS.minimum_distance]
 
             if set:
                 self.lines = lines
@@ -217,9 +226,9 @@ class DataStore:
         print("Lines are loading..")
         try:
             self.lines = gpd.read_postgis("SELECT * FROM LINES", con=db, crs=self.crs, geom_col='geometry')
-        except Exception as err:
-            warnings.warn(f"Load lines raised error : {err}")
-            self.download_lines(save=True)
+        except ProgrammingError:
+            warnings.warn(f"Lines are downloading..")
+            self.download_lines(save=True, set=True)
 
     def _load_points(self):
         print("Points are loading..")
@@ -229,8 +238,8 @@ class DataStore:
         else:
             try:
                 self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs, geom_col='geometry')
-            except Exception as err:
-                warnings.warn(f"Loading points raised error : {err}")
+            except ProgrammingError:
+                warnings.warn(f"Points are generating..")
                 self.generate_points()
 
     def _load_polygons(self):
@@ -268,7 +277,3 @@ class DataStore:
     def _save_polygons(self):
         self.polygons.to_postgis('polygons', con=db, if_exists=if_exists)
         print("Polygons are saved")
-
-
-ds = DataStore()
-dummy = DummyDataManipulator()
