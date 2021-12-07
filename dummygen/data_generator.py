@@ -37,24 +37,27 @@ class DummyDataManipulator:
 
     @classmethod
     def random_date(cls):
-        start_u = cls.start_date.value//10**9
-        end_u = cls.end_date.value//10**9
+        start_u = cls.start_date.value // 10 ** 9
+        end_u = cls.end_date.value // 10 ** 9
 
         return pd.to_datetime(np.random.randint(start_u, end_u, 1), unit='s')[0]
 
     @classmethod
-    def add_dummy_fields(cls, points: gpd.GeoDataFrame, add_time=True):
-        points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
+    def add_dummy_fields(cls, points: gpd.GeoDataFrame, add_time=True, add_person_id=True):
         points['Age'] = [cls.dummy_person.age(cls.min_age, cls.max_age) for _ in range(len(points))]
         points['Quality'] = [random.randint(0, 5) for _ in range(len(points))]
         points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]).name for _ in range(len(points))]
+
         if add_time:
             points['Timestamp'] = [cls.random_date() for _ in range(len(points))]
+
+        if add_person_id:
+            points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
 
         return points
 
     @classmethod
-    def generate_points_along_line(cls, lines: gpd.GeoDataFrame):
+    def generate_points_along_line(cls, lines: gpd.GeoDataFrame, add_dummy=True):
         """
         Downloads OSM data if reload = True
         Generate points along lines and sum up.
@@ -77,7 +80,7 @@ class DummyDataManipulator:
                 start_date += timedelta(seconds=adding_seconds)
 
                 p = {'geometry': subpoints,
-                     'wayid': l.osmid, # which way id is snapped?
+                     'wayid': l.osmid,  # which way id is snapped?
                      'Timestamp': start_date}
                 points.append(p)
 
@@ -87,8 +90,14 @@ class DummyDataManipulator:
         points_gdf.drop_duplicates('geometry', inplace=True)
         points_gdf.reset_index(inplace=True)
         points_gdf.rename(columns={'index': 'ROWID'}, inplace=True)
-        points_gdf.drop(columns=['wayid'], inplace=True)
+        points_gdf.set_geometry('geometry', inplace=True)
+        # points_gdf.drop(columns=['wayid'], inplace=True)
+
+        # dummy
+        if add_dummy:
+            points_grouped = points_gdf.groupby('wayid')
+            points_grouped.apply(DummyDataManipulator.add_dummy_fields)
 
         points_gdf['DTYPE'] = 'DYNAMIC'
 
-        return gpd.GeoDataFrame(points, geometry='geometry')
+        return points_gdf
