@@ -6,12 +6,14 @@ from datetime import datetime, timedelta
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from mimesis import Person
+from mimesis import Person, Generic
+from mimesis.locales import TR
 from mimesis.enums import Gender
 
 from config import settings
 
 DUMMY_SETTINGS = settings.DUMMY
+generic = Generic(locale=TR)
 
 
 class DummyDataManipulator:
@@ -35,24 +37,24 @@ class DummyDataManipulator:
 
     @classmethod
     def random_date(cls):
-        if cls.date_mixing:
-            start_date = pd.to_datetime(pd.date_range(cls.start_date, cls.end_date, periods=1)[0])
-        else:
-            start_date = cls.start_date
+        start_u = cls.start_date.value//10**9
+        end_u = cls.end_date.value//10**9
 
-        return start_date
+        return pd.to_datetime(np.random.randint(start_u, end_u, 1), unit='s')[0]
 
     @classmethod
-    def add_dummy_fields(cls, points: gpd.GeoDataFrame):
-        points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
+    def add_dummy_fields(cls, points: gpd.GeoDataFrame, add_time=True):
         points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
         points['Age'] = [cls.dummy_person.age(cls.min_age, cls.max_age) for _ in range(len(points))]
         points['Quality'] = [random.randint(0, 5) for _ in range(len(points))]
-        points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]) for _ in range(len(points))]
+        points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]).name for _ in range(len(points))]
+        if add_time:
+            points['Timestamp'] = [cls.random_date() for _ in range(len(points))]
 
         return points
 
-    def generate_points_along_line(self, lines: gpd.GeoDataFrame):
+    @classmethod
+    def generate_points_along_line(cls, lines: gpd.GeoDataFrame):
         """
         Downloads OSM data if reload = True
         Generate points along lines and sum up.
@@ -63,25 +65,30 @@ class DummyDataManipulator:
         points = []
 
         for _, l in lines.iterrows():
-            start_date = pd.to_datetime(pd.date_range(self.start_date, self.end_date, periods=1)[0])
+            start_date = cls.random_date()
 
             how_many_people = np.random.randint(0, 3)
-            distances = np.random.randint(self.minimum_distance, self.maximum_distance, how_many_people)
+            distances = np.random.randint(cls.minimum_distance, cls.maximum_distance, how_many_people)
             distances.sort()
 
             for d in distances:
-                adding_seconds = d // self.avg_speed
+                adding_seconds = d // cls.avg_speed
                 subpoints = l.geometry.interpolate(d)
                 start_date += timedelta(seconds=adding_seconds)
 
-                p = {'geometry': subpoints, 'wayid': l.osmid, 'Timestamp': start_date}
+                p = {'geometry': subpoints,
+                     'wayid': l.osmid, # which way id is snapped?
+                     'Timestamp': start_date}
                 points.append(p)
 
         # points
-        points_gdf = gpd.GeoDataFrame(points, crs=self.crs)
+        points_gdf = gpd.GeoDataFrame(points, crs=cls.crs)
         points_gdf = points_gdf[points_gdf['wayid'].apply(lambda x: str(x).isdigit())]
         points_gdf.drop_duplicates('geometry', inplace=True)
         points_gdf.reset_index(inplace=True)
         points_gdf.rename(columns={'index': 'ROWID'}, inplace=True)
+        points_gdf.drop(columns=['wayid'], inplace=True)
 
-        return points
+        points_gdf['DTYPE'] = 'DYNAMIC'
+
+        return gpd.GeoDataFrame(points, geometry='geometry')

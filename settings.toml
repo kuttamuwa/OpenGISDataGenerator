@@ -7,11 +7,13 @@ minimum_distance = 50  # minimum footstep distance is X meters
 maximum_distance = 120 #3 max... footstep
 avg_speed = 1.4 # pedestrian
 constant = "False" # means random
-start_date = "2021-8-03 16:40:21"
-end_date = "2022-12-03 15:40:21"
+start_date = "2019-8-03 16:40:21"
+end_date = "2021-12-03 15:40:21"
 date_mixing = "True"  # Random date specified start_date, end_date
 reload = "False"  # Downloads OSM data again if set True
 crs = "epsg:3857"
+recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
+repeated_times = 3  #
 
 [DB]
 host = "127.0.0.1"

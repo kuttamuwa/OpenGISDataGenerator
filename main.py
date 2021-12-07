@@ -16,8 +16,6 @@ import argparse
 agp = argparse.ArgumentParser()
 agp.add_argument('config', help='settings.toml dosyasını yükle')
 
-# publisher = GeoServerPublisher()
-
-
-dummy = DummyDataManipulator()
-puller = DataStore()
+if __name__ == '__main__':
+    dummy = DummyDataManipulator()
+    puller = DataStore()

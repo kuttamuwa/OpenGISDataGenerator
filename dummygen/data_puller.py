@@ -8,7 +8,7 @@ import osmnx as ox
 import pandas as pd
 
 from config import settings
-from db.connector import db
+from db.connector import db, if_exists
 from dummygen.data_generator import DummyDataManipulator
 
 DUMMY_SETTINGS = settings.DUMMY
@@ -45,17 +45,20 @@ class DataStore:
        Downloads OSM Data and generate random points as pandas DataFrame
        :return:
         """
-        print("Loading graph..")
-        if cls.bbox:
-            G = ox.graph_from_bbox(*cls.bbox, network_type=network_type)
-        elif cls.address:
-            G = ox.graph_from_place(cls.address, network_type=network_type)
-        else:
-            raise ValueError('bbox veya adres parametresi doldurulmalıdır')
+        if cls.graph is None:
+            print("Loading graph..")
+            if cls.bbox:
+                G = ox.graph_from_bbox(*cls.bbox, network_type=network_type)
+            elif cls.address:
+                G = ox.graph_from_place(cls.address, network_type=network_type)
+            else:
+                raise ValueError('bbox veya adres parametresi doldurulmalıdır')
 
-        G = ox.project_graph(G, cls.crs)
-        print("Graph is loaded.")
-        cls.graph = G
+            G = ox.project_graph(G, cls.crs)
+            cls.graph = G
+            print("Graph is loaded.")
+        else:
+            print("Graph is already loaded !")
 
     @classmethod
     def init_routing(cls):
@@ -72,47 +75,99 @@ class DataStore:
 
     def load(self):
         try:
-            self._load_points()
             self._load_lines()
+            self._load_points()
             # self._load_polygons()  # Not Implemented
 
         except Exception as err:
             warnings.warn("Uncompatibility issues around data. Downloading again... \n"
                           f"Error : {err}")
             self.download_graph()
-            # self.load()
+            self.load()
 
-    def download_lines(self):
+    def download_lines(self, save=True, set=True):
         """
         Get lines from osmnx
         :return:
         """
         if self.lines is None:
+            print("Lines are downloading..")
             lines = ox.graph_to_gdfs(self.graph, nodes=False)
+            lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
+                       inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
             lines['length'] = lines['geometry'].length
-            self.lines = lines
+
+            if set:
+                self.lines = lines
+
+            if save:
+                self._save_lines()
 
             return lines
 
-    def generate_random_points_in_area(self, snap=True) -> gpd.GeoDataFrame:
+    def generate_points(self):
+        self.generate_random_points_in_area()  # static points
+        print(f"Static points are generated. Length : {len(self.points)}")
+
+        print("Recursive points are generating..")
+        repeated_times = DUMMY_SETTINGS.get('repeated_times', 3)
+        sample_count = DUMMY_SETTINGS.get('recursive_sample', 200)
+
+        while repeated_times > 0:
+            self.generate_recursive_points(sample_count=sample_count)
+            print(f"Recursive Points are generated, \n "
+                  f"Length of all points : {len(self.points)}")
+            repeated_times += -1
+            print(f"Recursive last : {repeated_times}")
+
+        self._save_points()
+        print("Recursive points are generated and saved ")
+
+        # different places
+        points = DummyDataManipulator.generate_points_along_line(self.lines)
+        points = DummyDataManipulator.add_dummy_fields(points, add_time=False)
+        self.points = self.points.append(points)
+        self._save_points()
+        print("Generated points along line and saved !")
+
+    def generate_recursive_points(self, sample_count=None):
         """
-        Downloads OSM Data and generate random points as pandas DataFrame
+        Sampled count of points will be duplicated with different attributes
+        :return:
+        """
+
+        points = self.points.sample(sample_count)
+
+        # different attributes
+        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=30)  # like they're waiting for half hour
+        points['DTYPE'] = 'RECURSIVE'
+
+        self.points = self.points.append(points)
+        print(f"Appended points with recursive")
+
+    def generate_random_points_in_area(self, save=True, set=True, add_dummy=True) -> gpd.GeoDataFrame:
+        """
+        Downloads OSM Data and generate random points snapped to roads as pandas DataFrame
         :return:
         """
 
         Gp = ox.project_graph(self.graph, to_crs=self.crs)
         random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
-        random_points = gpd.GeoDataFrame(random_points, geometry='geometry')
-        random_points = DummyDataManipulator.add_dummy_fields(random_points)
+        random_points = gpd.GeoDataFrame(random_points)
+        random_points.rename(columns={0: 'geometry'}, inplace=True)
+        random_points.set_geometry('geometry', inplace=True)
+        random_points['DTYPE'] = 'STATIC'
 
-        # if snap:
-        #     print("Snapping points..")
-        #     for _, l in self.lines.iterrows():
-        #         geom = l.geometry
-        #         geom.interpolate()
+        if add_dummy:
+            random_points = DummyDataManipulator.add_dummy_fields(random_points, add_time=True)
 
-        self.points = random_points
+        if set:
+            self.points = random_points
+
+        if save:
+            self._save_points()
+
         return random_points
 
     def download_poi(self):
@@ -123,16 +178,25 @@ class DataStore:
         try:
             if self.lines is None:
                 self.lines = gpd.read_postgis("SELECT * FROM LINES", con=db, crs=self.crs, geom_col='geometry')
-        except Exception:
-            self.download_lines()
+        except Exception as err:
+            warnings.warn(f"Load lines raised error : {err}")
+            self.download_lines(save=True)
+
+        finally:
+            print(f"Lines are loaded : {self.lines.head(5)}")
 
     def _load_points(self):
         print("Points are loading..")
         try:
             if self.points is None:
                 self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs, geom_col='geometry')
-        except Exception:
-            self.generate_random_points_in_area()
+
+        except Exception as err:
+            warnings.warn(f"Loading points raised error : {err}")
+            self.generate_points()
+
+        finally:
+            print(f"Points are loaded: {self.points.head(5)} ")
 
     def _load_polygons(self):
         """
@@ -143,8 +207,21 @@ class DataStore:
         try:
             if self.polygons is None:
                 self.polygons = gpd.read_postgis("SELECT * FROM POLYGONS", con=db, crs=self.crs, geom_col='geometry')
-        except Exception:
+        except Exception as err:
+            warnings.warn(f"Loading polygons raised error : {err}")
             self.download_poi()
+
+    def _save_points(self):
+        self.points.to_postgis('points', con=db, if_exists=if_exists)
+        print("Points are saved")
+
+    def _save_lines(self):
+        self.lines.to_postgis('lines', con=db, if_exists=if_exists)
+        print("Lines are saved.")
+
+    def _save_polygons(self):
+        self.polygons.to_postgis('polygons', con=db, if_exists=if_exists)
+        print("Polygons are saved")
 
 
 ds = DataStore()
