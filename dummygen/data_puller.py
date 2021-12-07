@@ -110,9 +110,13 @@ class DataStore:
         if self.reload_data:
             self._drop_points()
 
-        self.generate_random_points_in_area(save=False)  # static points
-        print(f"Static points are generated. Length : {len(self.points)}")
+        self.static_points()
+        self.recursive_points()
 
+        # different places
+        self.dynamic_points()
+
+    def recursive_points(self):
         print("Recursive points are generating..")
         repeated_times = DUMMY_SETTINGS.get('repeated_times', 3)
         sample_count = DUMMY_SETTINGS.get('recursive_sample', 200)
@@ -123,11 +127,15 @@ class DataStore:
                   f"Length of all points : {len(self.points)}")
             repeated_times += -1
             print(f"Recursive last : {repeated_times}")
+
         print("Recursive points are generated and saved ")
 
-        # different places
-        points = DummyDataManipulator.generate_points_along_line(self.lines)
-        points = DummyDataManipulator.add_dummy_fields(points, add_time=False, add_person_id=False)
+    def static_points(self):
+        self.generate_random_points_in_area(save=False)  # static points
+        print(f"Static points are generated and saved. Length : {len(self.points)}")
+
+    def dynamic_points(self):
+        points = DummyDataManipulator.generate_points_along_line(self.lines, add_dummy=True)
         print("Random points along the line are generated ")
         self.points = self.points.append(points)
         self._save_points(replace=True)  # different place

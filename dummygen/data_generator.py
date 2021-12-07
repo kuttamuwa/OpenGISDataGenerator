@@ -7,8 +7,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from mimesis import Person, Generic
-from mimesis.locales import TR
 from mimesis.enums import Gender
+from mimesis.locales import TR
 
 from config import settings
 
@@ -44,9 +44,20 @@ class DummyDataManipulator:
 
     @classmethod
     def add_dummy_fields(cls, points: gpd.GeoDataFrame, add_time=True, add_person_id=True):
+        """
+        Adds dummy fields into GeoDataFrame
+        :param points:
+        :param add_time:
+        :param add_person_id:
+        :return:
+        """
         points['Age'] = [cls.dummy_person.age(cls.min_age, cls.max_age) for _ in range(len(points))]
         points['Quality'] = [random.randint(0, 5) for _ in range(len(points))]
         points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]).name for _ in range(len(points))]
+
+        # todo: ?
+        points['First Name'] = [cls.dummy_person.first_name() for _ in range(len(points))]
+        points['Last Name'] = [cls.dummy_person.last_name() for _ in range(len(points))]
 
         if add_time:
             points['Timestamp'] = [cls.random_date() for _ in range(len(points))]
@@ -55,6 +66,29 @@ class DummyDataManipulator:
             points['PersonID'] = [uuid.uuid4() for _ in range(len(points))]
 
         return points
+
+    @classmethod
+    def add_dummy_fields_fn(cls, x, add_timestamp=True):
+        """
+        Adds dummy fields into GeoDataFrame
+       
+        :return:
+        """
+        _gender = random.choice([Gender.MALE, Gender.FEMALE])
+        x['Age'] = cls.dummy_person.age(cls.min_age, cls.max_age)
+        x['Quality'] = random.randint(0, 5)
+        x['Gender'] = _gender.name
+        x['PersonID'] = uuid.uuid4()
+
+        # todo: ?
+        x['First Name'] = cls.dummy_person.first_name(gender=_gender)
+        x['Last Name'] = cls.dummy_person.last_name(gender=_gender)
+
+        if add_timestamp:
+            print("Will added timestamp")
+            x['Timestamp'] = cls.random_date()
+
+        return x
 
     @classmethod
     def generate_points_along_line(cls, lines: gpd.GeoDataFrame, add_dummy=True):
@@ -96,7 +130,8 @@ class DummyDataManipulator:
         # dummy
         if add_dummy:
             points_grouped = points_gdf.groupby('wayid')
-            points_grouped.apply(DummyDataManipulator.add_dummy_fields)
+            points_grouped = points_grouped.apply(cls.add_dummy_fields_fn, add_timestamp=False)
+            points_gdf = points_grouped
 
         points_gdf['DTYPE'] = 'DYNAMIC'
 
