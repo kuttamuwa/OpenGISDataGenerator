@@ -3,11 +3,14 @@ os.path.sep is deprecated since os.sep is being used. os.path.sep should be repl
 in loaders.py in jinja2
 
 # Installation
+## Install Anaconda 
 Python: 3.10
-Anaconda
 
-# To install libraries:
-conda install req.yml
+conda config --prepend channels conda-forge
+conda create -n oxenv --strict-channel-priority osmnx
+
+## To install libraries
+conda env update --name oxenv --file req.yml
 
 # Deployment
 python main.py
