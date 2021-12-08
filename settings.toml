@@ -1,8 +1,9 @@
 [DUMMY]
-# bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # SHOULD BE LAT, LON IF YOU USE OSM
-address = 'Bucharest, Romania'
+bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # SHOULD BE LAT, LON IF YOU USE OSM
+# address = 'Bucharest, Romania'
+poi_center = [44.433582, 26.101034]  # lon lat
 network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
-sample_count = 1000  # how many static points should be added?
+sample_count = 2000  # how many static points should be added?
 minimum_distance = 50  # minimum footstep meters
 maximum_distance = 120 # max footstep meters
 avg_speed = 1.4 # pedestrian speed: m/s
@@ -10,11 +11,16 @@ constant = "False" # means random if set False
 start_date = "2019-8-03 16:40:21"
 end_date = "2021-12-03 15:40:21"
 date_mixing = "True"  # Generate random date specified start_date-end_date or assign each as start_date
-reload = "True"  # points data will be generated again AFTER clean table if set True
+reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
 crs = "epsg:3857"  # coordinate system
 recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
 repeated_times = 3  # how many times should we duplicate?
-use_osmnx = "True"  # Downloads data if set True, generates random points using bbox if set False
+use_osmnx = "False"  # Downloads data if set True, generates random points using bbox if set False
+# https://wiki.openstreetmap.org/wiki/Map_features#Entertainment.2C_Arts_.26_Culture
+poi_tags = """{"amenity": ["restaurant", "pub", "hotel",
+"hospital", "social_facility", "university", "veterinary", "social_center", "police"],
+"building": ["public"],
+"shop": ["jewelry"]}"""
 
 [DB]
 host = "127.0.0.1"
@@ -24,14 +30,6 @@ db = 'postgis_30_sample'
 port = 5432
 points_table_name = 'points'
 lines_table_name = 'lines'
-if_exists='append'  # fail, append
+poi_table_name = 'pois'
+if_exists='append'  # fail, append, replace
 
-[GEOSERVER]
-[LIVE]
-host="http://84.239.34.36:8080/geoserver"
-username = "admin"
-password = "Geopass"
-[TEST]
-host="http://127.0.0.1:8080/geoserver"
-username = "admin"
-password = "Geopass"

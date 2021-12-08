@@ -41,6 +41,8 @@ class DataStore:
     routing = DUMMY_SETTINGS.get('routing', False)
     count = DUMMY_SETTINGS.get('count', 1000)
     use_osmnx = ast.literal_eval(DUMMY_SETTINGS.get('use_osmnx', True))
+    poi_tags = ast.literal_eval(DUMMY_SETTINGS.poi_tags)
+    poi_center = DUMMY_SETTINGS.poi_center
 
     # time params
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
@@ -79,7 +81,7 @@ class DataStore:
     def __init__(self):
         self.points = None
         self.lines = None
-        self.polygons = None
+        self.pois = None
 
         # load data
         self.load()
@@ -88,7 +90,7 @@ class DataStore:
         self.download_graph()
         self._load_lines()
         self._load_points()
-        # self._load_polygons()  # Not Implemented
+        self._load_poi()  # Not Implemented
 
     def download_lines(self, save=True, set=True):
         """
@@ -115,17 +117,15 @@ class DataStore:
 
             return lines
 
-    def generate_points(self):
-        if self.reload_data:
-            self._drop_points()
-
-        self.static_points()
-        self.recursive_points()
+    def generate_points(self, **kwargs):
+        print("Generating")
+        self.static_points(**kwargs)
+        self.recursive_points(**kwargs)
 
         # different places
-        self.dynamic_points()
+        self.dynamic_points(**kwargs)
 
-    def recursive_points(self):
+    def recursive_points(self, **kwargs):
         print("Recursive points are generating..")
         repeated_times = DUMMY_SETTINGS.get('repeated_times', 3)
         sample_count = DUMMY_SETTINGS.get('recursive_sample', 200)
@@ -139,11 +139,11 @@ class DataStore:
 
         print("Recursive points are generated and saved ")
 
-    def static_points(self):
+    def static_points(self, **kwargs):
         self.generate_random_points_in_area(save=False)  # static points
         print(f"Static points are generated and saved. Length : {len(self.points)}")
 
-    def dynamic_points(self):
+    def dynamic_points(self, **kwargs):
         points = DummyDataManipulator.generate_points_along_line(self.lines, add_dummy=True)
         print("Random points along the line are generated ")
         self.points = self.points.append(points)
@@ -212,7 +212,10 @@ class DataStore:
             random_points = DummyDataManipulator.add_dummy_fields(random_points, add_time=True)
 
         if set:
-            self.points = random_points
+            if self.points is not None:
+                self.points = self.points.append(random_points)
+            else:
+                self.points = random_points
 
         if save:
             self._save_points()
@@ -220,7 +223,26 @@ class DataStore:
         return random_points
 
     def download_poi(self):
-        raise NotImplementedError
+        """
+        Downloads POI
+        :return:
+        """
+        print(f"poi tags : {self.poi_tags}")
+        poi_gdf = ox.geometries_from_point(self.poi_center, tags=self.poi_tags, dist=10000)
+        poi_gdf = gpd.GeoDataFrame(poi_gdf, crs=self.crs)
+        print(f"Downloaded poi : {poi_gdf.head(5)} \n"
+              f"Length : {len(poi_gdf)}")
+
+        if self.pois is not None:
+            self.pois = self.pois.append(poi_gdf)
+        else:
+            self.pois = poi_gdf
+
+        # drop duplicates
+        self.pois.drop_duplicates('geometry', inplace=True)
+
+        self._save_pois()
+        return poi_gdf
 
     def _load_lines(self):
         print("Lines are loading..")
@@ -234,25 +256,30 @@ class DataStore:
         print("Points are loading..")
         if self.reload_data:
             print("Reloading..")
+            self._drop_points()
             self.generate_points()
         else:
+            print("No reload !")
             try:
                 self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs, geom_col='geometry')
+                print("Generated points will be appended !")
+                self.generate_points()
+
             except ProgrammingError:
                 warnings.warn(f"Points are generating..")
                 self.generate_points()
 
-    def _load_polygons(self):
+    def _load_poi(self):
         """
         POI
         :return:
         """
-        # print("Polygons are loading..")
+        print("POIs are loading..")
         try:
-            if self.polygons is None:
-                self.polygons = gpd.read_postgis("SELECT * FROM POLYGONS", con=db, crs=self.crs, geom_col='geometry')
+            if self.pois is None:
+                self.pois = gpd.read_postgis("SELECT * FROM POIS", con=db, crs=self.crs, geom_col='geometry')
         except Exception as err:
-            warnings.warn(f"Loading polygons raised error : {err}")
+            warnings.warn(f"Loading pois raised error : {err}")
             self.download_poi()
 
     def _save_points(self, replace=False):
@@ -266,7 +293,14 @@ class DataStore:
     def _drop_points(self):
         try:
             db.execute("DROP TABLE POINTS")
-            print("Points are cleaned !")
+            print("Points table are dropped !")
+        except:
+            pass
+
+    def _clean_points(self):
+        try:
+            db.execute("DELETE FROM POINTS")
+            print("Points are cleaned ! ")
         except:
             pass
 
@@ -274,6 +308,6 @@ class DataStore:
         self.lines.to_postgis('lines', con=db, if_exists=if_exists)
         print("Lines are saved.")
 
-    def _save_polygons(self):
-        self.polygons.to_postgis('polygons', con=db, if_exists=if_exists)
-        print("Polygons are saved")
+    def _save_pois(self):
+        self.pois.to_postgis('pois', con=db, if_exists=if_exists)
+        print("POIs are saved")
