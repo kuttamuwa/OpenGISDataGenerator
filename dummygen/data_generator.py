@@ -25,7 +25,6 @@ class DummyDataManipulator:
     date_mixing = ast.literal_eval(DUMMY_SETTINGS.get('date_mixing', True))
 
     # distances
-    random_distance = DUMMY_SETTINGS.get('constant', True)
     minimum_distance = DUMMY_SETTINGS.get('minimum_distance')
     maximum_distance = DUMMY_SETTINGS.get('maximum_distance')
     avg_speed = DUMMY_SETTINGS.get('avg_speed', 1.4)

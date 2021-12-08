@@ -43,6 +43,7 @@ class DataStore:
     use_osmnx = ast.literal_eval(DUMMY_SETTINGS.get('use_osmnx', True))
     poi_tags = ast.literal_eval(DUMMY_SETTINGS.poi_tags)
     poi_center = DUMMY_SETTINGS.poi_center
+    poi_buffer_distance = DUMMY_SETTINGS.poi_buffer_distance
 
     # time params
     start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
@@ -57,9 +58,7 @@ class DataStore:
         try:
             if cls.graph is None and cls.use_osmnx:
                 print("Loading graph..")
-                if cls.bbox:
-                    G = ox.graph_from_bbox(*cls.bbox, network_type=network_type)
-                elif cls.address:
+                if cls.address:
                     G = ox.graph_from_place(cls.address, network_type=network_type)
                 else:
                     raise ValueError('bbox veya adres parametresi doldurulmalıdır')
@@ -227,9 +226,9 @@ class DataStore:
         Downloads POI
         :return:
         """
+        print("Downloading POI")
         print(f"poi tags : {self.poi_tags}")
-        poi_gdf = ox.geometries_from_point(self.poi_center, tags=self.poi_tags, dist=10000)
-        poi_gdf = gpd.GeoDataFrame(poi_gdf, crs=self.crs)
+        poi_gdf = ox.geometries_from_point(self.poi_center, tags=self.poi_tags, dist=self.poi_buffer_distance)
         print(f"Downloaded poi : {poi_gdf.head(5)} \n"
               f"Length : {len(poi_gdf)}")
 
