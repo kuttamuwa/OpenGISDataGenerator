@@ -260,8 +260,14 @@ class DataStore:
             if self.pois is not None:
                 print("POIs are adding..")
                 self.pois = self.pois.append(poi_gdf)
+                remained_columns = self.pois.columns
             else:
                 self.pois = poi_gdf
+                remained_columns = poi_gdf.columns
+
+            # filtering
+            remained_columns = [i for i in remained_columns if i not in ('geometry', 'name')]
+            self.pois.drop(columns=remained_columns, inplace=True)
 
             # drop duplicates
             self.pois.drop_duplicates('geometry', inplace=True)
@@ -336,3 +342,4 @@ class DataStore:
     def _save_pois(self):
         self.pois.to_postgis('pois', con=db, if_exists=if_exists)
         print("POIs are saved")
+

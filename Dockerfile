@@ -18,7 +18,7 @@ RUN conda --version
 RUN conda config --prepend channels conda-forge
 RUN conda install -c conda-forge python=3.10
 
-RUN conda env create --name oxenv --file req.yml python=3.10
+RUN conda env update --name oxenv --file req.yml
 RUN source activate oxenv
 
 COPY . .

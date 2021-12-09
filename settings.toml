@@ -4,7 +4,7 @@ crs = "epsg:3857"  # coordinate system
 reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
 
 [POI_SETTINGS]
-poi_center = [44.433582, 26.101034]  # lon lat, POI
+poi_center = [44.419273, 26.104215]  # lon lat, POI
 poi_buffer_distance = 1000
 # https://wiki.openstreetmap.org/wiki/Map_features#Entertainment.2C_Arts_.26_Culture
 poi_tags = """{"amenity": ["restaurant", "pub", "hotel",
