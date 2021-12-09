@@ -43,13 +43,16 @@ class DataStore:
     graph = None
 
     crs = loc_settings.crs
-    bbox = loc_settings.bbox
     address = loc_settings.address
     reload_data = loc_settings.reload
-    network_type = osm_settings.network_type
+
     count = static_settings.sample_count
+    bbox = static_settings.bbox
+
+    network_type = osm_settings.network_type
     use_osmnx = osm_settings.use_osmnx
-    poi_tags = poi_settings.poi_tags
+
+    poi_tags = ast.literal_eval(poi_settings.poi_tags)
     poi_center = poi_settings.poi_center
     poi_buffer_distance = poi_settings.poi_buffer_distance
 
@@ -97,7 +100,7 @@ class DataStore:
         self.download_graph()
         self._load_lines()
         self._load_points()
-        self._load_poi()  # Not Implemented
+        self._load_poi()
 
     def download_lines(self, save=True, set=True):
         """
@@ -135,6 +138,7 @@ class DataStore:
         # different places
         if dynamic_settings.run == 1:
             self.dynamic_points()
+        print("Generated points !")
 
     def recursive_points(self):
         print("Recursive points are generating..")
@@ -241,19 +245,28 @@ class DataStore:
         print("Downloading POI")
         print(f"poi tags : {self.poi_tags}")
         poi_gdf = ox.geometries_from_point(self.poi_center, tags=self.poi_tags, dist=self.poi_buffer_distance)
-        print(f"Downloaded poi : {poi_gdf.head(5)} \n"
-              f"Length : {len(poi_gdf)}")
 
-        if self.pois is not None:
-            self.pois = self.pois.append(poi_gdf)
+        # projection
+        poi_gdf.to_crs(crs=self.crs, inplace=True)
+
+        if poi_gdf.empty:
+            warnings.warn("There is no downloaded POI around your center ! "
+                          "Please set another poi_center ! ")
+
         else:
-            self.pois = poi_gdf
+            print(f"Downloaded poi : {poi_gdf.head(5)} \n"
+                  f"Length : {len(poi_gdf)}")
 
-        # drop duplicates
-        self.pois.drop_duplicates('geometry', inplace=True)
+            if self.pois is not None:
+                print("POIs are adding..")
+                self.pois = self.pois.append(poi_gdf)
+            else:
+                self.pois = poi_gdf
 
-        self._save_pois()
-        return poi_gdf
+            # drop duplicates
+            self.pois.drop_duplicates('geometry', inplace=True)
+
+            self._save_pois()
 
     def _load_lines(self):
         print("Lines are loading..")
@@ -289,8 +302,9 @@ class DataStore:
         try:
             if self.pois is None:
                 self.pois = gpd.read_postgis("SELECT * FROM POIS", con=db, crs=self.crs, geom_col='geometry')
-        except Exception as err:
-            warnings.warn(f"Loading pois raised error : {err}")
+                self.download_poi()
+        except ProgrammingError:
+            warnings.warn(f"Couldn't read POIS table")
             self.download_poi()
 
     def _save_points(self, replace=False):

@@ -1,5 +1,5 @@
-# Bugfixes on libraries
-os.path.sep is deprecated since os.sep is being used. os.path.sep should be replaced
+# Bugfixes in libraries
+jinja2: os.path.sep is deprecated since os.sep is being used. os.path.sep should be replaced
 in loaders.py in jinja2
 
 # Installation
@@ -17,7 +17,7 @@ python main.py
 
 # Config
 settings.toml
-Details are specified in the settings file.
+Details are specified below:
 
 [DUMMY]:
 [LOCATION SETTINGS]
@@ -31,7 +31,8 @@ poi_buffer_distance = OSM downloads points within 1000 meters of buffered area o
 Unit is meters, Default: 1000
 
 [OSM SETTINGS]
-network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
+network_type = "all_private"  Choices:
+"all_private", "all", "bike", "drive", "drive_service", "walk"
 
 [DATE SETTINGS]
 start_date = "2019-8-03 16:40:21"

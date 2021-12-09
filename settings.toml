@@ -1,5 +1,4 @@
 [LOCATION_SETTINGS]
-bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
 address = 'Bucharest, Romania'  # USED BY OSM
 crs = "epsg:3857"  # coordinate system
 reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
@@ -7,17 +6,18 @@ reload = "False"  # points data will be generated again AFTER clean table if set
 [POI_SETTINGS]
 poi_center = [44.433582, 26.101034]  # lon lat, POI
 poi_buffer_distance = 1000
-
-[OSM_SETTINGS]
-network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
-use_osmnx = "True"  # Downloads data if set True
 # https://wiki.openstreetmap.org/wiki/Map_features#Entertainment.2C_Arts_.26_Culture
 poi_tags = """{"amenity": ["restaurant", "pub", "hotel",
 "hospital", "social_facility", "university", "veterinary", "social_center", "police"],
 "building": ["public"],
 "shop": ["jewelry"]}"""
 
+[OSM_SETTINGS]
+network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
+use_osmnx = "True"  # Downloads data if set True
+
 [STATIC_POINTS]
+bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
 sample_count = 2000  # how many static points should be added?
 run = 1
 
@@ -25,7 +25,7 @@ run = 1
 minimum_distance = 50  # minimum footstep meters
 maximum_distance = 120 # max footstep meters
 avg_speed = 1.4 # pedestrian speed: m/s
-run = 1
+run = 0
 
 [DATE_SETTINGS]
 start_date = "2019-8-03 16:40:21"
@@ -35,7 +35,7 @@ date_mixing = "True"  # Generate random date specified start_date-end_date or as
 [RECURSIVE_POINTS]
 recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
 repeated_times = 3  # how many times should we duplicate?
-run = 1
+run = 0
 
 [PERSON]
 min_age = 18
