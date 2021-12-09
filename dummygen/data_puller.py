@@ -67,7 +67,7 @@ class DataStore:
        :return:
         """
         try:
-            if cls.graph is None and cls.use_osmnx:
+            if cls.graph is None and cls.use_osmnx is True:
                 print("Loading graph..")
                 if cls.address:
                     G = ox.graph_from_place(cls.address, network_type=network_type)
@@ -138,6 +138,7 @@ class DataStore:
         # different places
         if dynamic_settings.run == 1:
             self.dynamic_points()
+
         print("Generated points !")
 
     def recursive_points(self):
@@ -152,20 +153,24 @@ class DataStore:
             repeated_times += -1
             print(f"Recursive last : {repeated_times}")
 
+        self.points.drop_duplicates(inplace=True)
+        self._save_points()
         print("Recursive points are generated and saved ")
 
     def static_points(self):
-        self.generate_random_points_in_area(save=False)  # static points
+        self.generate_random_points_in_area(save=True)  # static points
         print(f"Static points are generated and saved. Length : {len(self.points)}")
 
     def dynamic_points(self):
         points = DummyDataManipulator.generate_points_along_line(self.lines, add_dummy=True)
-        print("Random points along the line are generated ")
+        print(f"Random points along the line are generated, length : {len(points)} ")
         self.points = self.points.append(points)
-        self._save_points(replace=True)  # different place
+
+        self.points.drop_duplicates(inplace=True)
+        self._save_points()
         print("Points along line saved !")
 
-    def generate_recursive_points(self, sample_count=None):
+    def generate_recursive_points(self, sample_count=1000):
         """
         Sampled count of points will be duplicated with different attributes
         :return:
@@ -177,7 +182,10 @@ class DataStore:
         points['Timestamp'] = points['Timestamp'] + timedelta(minutes=dynamic_settings.wait_min)  # like they're waiting for half hour
         points['DTYPE'] = 'RECURSIVE'
 
-        self.points = self.points.append(points)
+        if self.points is None:
+            self.points = points
+        else:
+            self.points = self.points.append(points)
         print(f"Appended points with recursive")
 
     def generate_random_points_shapely(self):
@@ -214,7 +222,7 @@ class DataStore:
         :return:
         """
 
-        if self.use_osmnx:
+        if self.use_osmnx is True:
             print("Generating points with osmnx")
             random_points = self.generate_random_points_osmnx()
         else:

@@ -51,6 +51,7 @@ recursive_sample = 200  # we will duplicate 20 rows of generated points for each
 run = 1 means RUN, else means DO NOT RUN
 repeated_times = Default: 3. Specifies how many times do you want to create point. Each step the program takes
 sample of "recursive_sample" and append points as geometric duplicated.
+wait_min = How many minutes you want them to add timestamp for each?
 
 [DYNAMIC POINTS]
 run = 1 means RUN, else means DO NOT RUN

@@ -137,5 +137,6 @@ class DummyDataManipulator:
             points_gdf = points_grouped
 
         points_gdf['DTYPE'] = 'DYNAMIC'
+        points_gdf.drop(columns=['wayid'], inplace=True)
 
         return points_gdf
