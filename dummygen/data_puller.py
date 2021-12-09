@@ -124,15 +124,19 @@ class DataStore:
 
             return lines
 
-    def generate_points(self, **kwargs):
+    def generate_points(self):
         print("Generating")
-        self.static_points(**kwargs)
-        self.recursive_points(**kwargs)
+        if static_settings.run == 1:
+            self.static_points()
+
+        if recursive_settings.run == 1:
+            self.recursive_points()
 
         # different places
-        self.dynamic_points(**kwargs)
+        if dynamic_settings.run == 1:
+            self.dynamic_points()
 
-    def recursive_points(self, **kwargs):
+    def recursive_points(self):
         print("Recursive points are generating..")
         repeated_times = recursive_settings.repeated_times
         sample_count = recursive_settings.recursive_sample
@@ -146,11 +150,11 @@ class DataStore:
 
         print("Recursive points are generated and saved ")
 
-    def static_points(self, **kwargs):
+    def static_points(self):
         self.generate_random_points_in_area(save=False)  # static points
         print(f"Static points are generated and saved. Length : {len(self.points)}")
 
-    def dynamic_points(self, **kwargs):
+    def dynamic_points(self):
         points = DummyDataManipulator.generate_points_along_line(self.lines, add_dummy=True)
         print("Random points along the line are generated ")
         self.points = self.points.append(points)
@@ -166,7 +170,7 @@ class DataStore:
         points = self.points.sample(sample_count)
 
         # different attributes
-        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=30)  # like they're waiting for half hour
+        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=dynamic_settings.wait_min)  # like they're waiting for half hour
         points['DTYPE'] = 'RECURSIVE'
 
         self.points = self.points.append(points)
