@@ -12,27 +12,31 @@ from mimesis.locales import TR
 
 from config import settings
 
-DUMMY_SETTINGS = settings.DUMMY
+loc_settings = settings.LOCATION_SETTINGS
+date_settings = settings.DATE_SETTINGS
+dynamic_settings = settings.DYNAMIC_POINTS
+person_settings = settings.PERSON
+
 generic = Generic(locale=TR)
 
 
 class DummyDataManipulator:
-    crs = DUMMY_SETTINGS.get('crs')
+    crs = loc_settings.crs
 
-    # dates
-    start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
-    end_date = pd.to_datetime(DUMMY_SETTINGS.get('end_date', datetime.now() + timedelta(hours=10)))
-    date_mixing = ast.literal_eval(DUMMY_SETTINGS.get('date_mixing', True))
+    # time params
+    start_date = pd.to_datetime(date_settings.get('start_date', datetime.now()))
+    end_date = pd.to_datetime(date_settings.get('end_date', datetime.now() + timedelta(hours=10)))
+    date_mixing = ast.literal_eval(date_settings.get('date_mixing', True))
 
     # distances
-    minimum_distance = DUMMY_SETTINGS.get('minimum_distance')
-    maximum_distance = DUMMY_SETTINGS.get('maximum_distance')
-    avg_speed = DUMMY_SETTINGS.get('avg_speed', 1.4)
+    minimum_distance = dynamic_settings.minimum_distance
+    maximum_distance = dynamic_settings.maximum_distance
+    avg_speed = dynamic_settings.avg_speed
 
     # person
     dummy_person = Person(locale='tr')
-    min_age = DUMMY_SETTINGS.get('min_age', 16)
-    max_age = DUMMY_SETTINGS.get('max_age', 70)
+    min_age = person_settings.min_age
+    max_age = person_settings.max_age
 
     @classmethod
     def random_date(cls):

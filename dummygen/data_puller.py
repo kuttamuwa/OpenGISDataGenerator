@@ -15,7 +15,16 @@ from db.connector import db, if_exists
 from dummygen.data_generator import DummyDataManipulator
 from errors.configerr import OSMNXMustbeTrue
 
-DUMMY_SETTINGS = settings.DUMMY
+loc_settings = settings.LOCATION_SETTINGS
+poi_settings = settings.POI_SETTINGS
+osm_settings = settings.OSM_SETTINGS
+
+static_settings = settings.STATIC_POINTS
+dynamic_settings = settings.DYNAMIC_POINTS
+recursive_settings = settings.RECURSIVE_POINTS
+
+date_settings = settings.DATE_SETTINGS
+
 
 ox.config(use_cache=True, log_console=True,
           # default_crs=DUMMY_SETTINGS.crs
@@ -33,21 +42,20 @@ class DataStore:
     """
     graph = None
 
-    crs = DUMMY_SETTINGS.crs
-    bbox = DUMMY_SETTINGS.get('bbox', None)
-    address = DUMMY_SETTINGS.get('address', None)
-    reload_data = ast.literal_eval(DUMMY_SETTINGS.get('reload', False))
-    network_type = DUMMY_SETTINGS.get('network_type', 'all_private')
-    routing = DUMMY_SETTINGS.get('routing', False)
-    count = DUMMY_SETTINGS.get('count', 1000)
-    use_osmnx = ast.literal_eval(DUMMY_SETTINGS.get('use_osmnx', True))
-    poi_tags = ast.literal_eval(DUMMY_SETTINGS.poi_tags)
-    poi_center = DUMMY_SETTINGS.poi_center
-    poi_buffer_distance = DUMMY_SETTINGS.poi_buffer_distance
+    crs = loc_settings.crs
+    bbox = loc_settings.bbox
+    address = loc_settings.address
+    reload_data = loc_settings.reload
+    network_type = osm_settings.network_type
+    count = static_settings.sample_count
+    use_osmnx = osm_settings.use_osmnx
+    poi_tags = poi_settings.poi_tags
+    poi_center = poi_settings.poi_center
+    poi_buffer_distance = poi_settings.poi_buffer_distance
 
     # time params
-    start_date = pd.to_datetime(DUMMY_SETTINGS.get('start_date', datetime.now()))
-    end_date = pd.to_datetime(DUMMY_SETTINGS.get('end_date', datetime.now() + timedelta(hours=10)))
+    start_date = pd.to_datetime(date_settings.get('start_date', datetime.now()))
+    end_date = pd.to_datetime(date_settings.get('end_date', datetime.now() + timedelta(hours=10)))
 
     @classmethod
     def download_graph(cls, network_type='all_private'):
@@ -106,7 +114,7 @@ class DataStore:
                        inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
             lines['length'] = lines['geometry'].length
-            lines = lines[lines['length'] > DUMMY_SETTINGS.minimum_distance]
+            lines = lines[lines['length'] > dynamic_settings.minimum_distance]
 
             if set:
                 self.lines = lines
@@ -126,8 +134,8 @@ class DataStore:
 
     def recursive_points(self, **kwargs):
         print("Recursive points are generating..")
-        repeated_times = DUMMY_SETTINGS.get('repeated_times', 3)
-        sample_count = DUMMY_SETTINGS.get('recursive_sample', 200)
+        repeated_times = recursive_settings.repeated_times
+        sample_count = recursive_settings.recursive_sample
 
         while repeated_times > 0:
             self.generate_recursive_points(sample_count=sample_count)

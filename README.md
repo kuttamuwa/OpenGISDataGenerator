@@ -30,6 +30,7 @@ It doesn't work if you set use_osmnx=True
 poi_buffer_distance = OSM downloads points within 1000 meters of buffered area on poi center. 
 Unit is meters, Default: 1000
 
+[OSM SETTINGS]
 network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
 
 [DATE SETTINGS]
