@@ -58,7 +58,6 @@ run = 1 means RUN, else means DO NOT RUN
 minimum_distance = 50  # minimum footstep meters
 maximum_distance = 120 # max footstep meters
 avg_speed = 1.4 # pedestrian speed: m/s
-wait_min = 30  # minutes
 
 [DATA DOWNLOAD]
 use_osmnx = Deploys graph and downloads line if set True. Works offline if set False and creates points with shapely
