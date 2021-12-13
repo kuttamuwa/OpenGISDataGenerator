@@ -22,9 +22,14 @@ sample_count = 2000  # how many static points should be added?
 run = 1
 
 [DYNAMIC_POINTS]
-minimum_distance = 50  # minimum footstep meters
-maximum_distance = 120 # max footstep meters
+minimum_distance = 100  # minimum footstep meters
+maximum_distance = 300 # max footstep meters
 avg_speed = 1.4 # pedestrian speed: m/s
+run = 0
+
+[RECURSIVE_POINTS]
+recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
+repeated_times = 20  # how many times should we duplicate?
 wait_min = 30
 run = 1
 
@@ -33,10 +38,6 @@ start_date = "2019-8-03 16:40:21"
 end_date = "2021-12-03 15:40:21"
 date_mixing = "True"  # Generate random date specified start_date-end_date or assign each as start_date
 
-[RECURSIVE_POINTS]
-recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
-repeated_times = 3  # how many times should we duplicate?
-run = 1
 
 [PERSON]
 min_age = 18

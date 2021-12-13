@@ -44,7 +44,7 @@ class DataStore:
 
     crs = loc_settings.crs
     address = loc_settings.address
-    reload_data = loc_settings.reload
+    reload_data = ast.literal_eval(loc_settings.reload)
 
     count = static_settings.sample_count
     bbox = static_settings.bbox
@@ -153,7 +153,7 @@ class DataStore:
             repeated_times += -1
             print(f"Recursive last : {repeated_times}")
 
-        self.points.drop_duplicates(inplace=True)
+        self.points.drop_duplicates(['geometry', 'Timestamp'], inplace=True)
         self._save_points()
         print("Recursive points are generated and saved ")
 
@@ -164,7 +164,11 @@ class DataStore:
     def dynamic_points(self):
         points = DummyDataManipulator.generate_points_along_line(self.lines, add_dummy=True)
         print(f"Random points along the line are generated, length : {len(points)} ")
-        self.points = self.points.append(points)
+
+        if self.points is None:
+            self.points = points
+        else:
+            self.points = self.points.append(points)
 
         self.points.drop_duplicates(inplace=True)
         self._save_points()
@@ -179,7 +183,7 @@ class DataStore:
         points = self.points.sample(sample_count)
 
         # different attributes
-        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=dynamic_settings.wait_min)  # like they're waiting for half hour
+        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)  # like they're waiting for half hour
         points['DTYPE'] = 'RECURSIVE'
 
         if self.points is None:
@@ -293,7 +297,7 @@ class DataStore:
     def _load_points(self):
         print("Points are loading..")
         if self.reload_data:
-            print("Reloading..")
+            print("Reloading.. ")
             self._drop_points()
             self.generate_points()
         else:
@@ -329,14 +333,16 @@ class DataStore:
             self.points.to_postgis('points', con=db, if_exists=if_exists)
         print("Points are saved")
 
-    def _drop_points(self):
+    @staticmethod
+    def _drop_points():
         try:
             db.execute("DROP TABLE POINTS")
             print("Points table are dropped !")
         except:
             pass
 
-    def _clean_points(self):
+    @staticmethod
+    def _clean_points():
         try:
             db.execute("DELETE FROM POINTS")
             print("Points are cleaned ! ")

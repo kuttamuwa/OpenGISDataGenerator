@@ -94,32 +94,42 @@ class DummyDataManipulator:
         return x
 
     @classmethod
-    def generate_points_along_line(cls, lines: gpd.GeoDataFrame, add_dummy=True):
+    def generate_points_along_line(cls, lines: gpd.GeoDataFrame, add_dummy=True, how_many_step=1):
         """
         Downloads OSM data if reload = True
         Generate points along lines and sum up.
+
+        :param lines:
+        :param add_dummy:
+        :param how_many_step: 1 is default. Each line will have 1 person with one time.
 
         :return:
         """
 
         points = []
 
+        # filter
+        lines = lines[lines.length > cls.minimum_distance]
+
+        print(f"Count of lines: {len(lines)}")
         for _, l in lines.iterrows():
             start_date = cls.random_date()
 
-            how_many_people = np.random.randint(0, 3)
-            distances = np.random.randint(cls.minimum_distance, cls.maximum_distance, how_many_people)
+            max_distance = l.length if l.length >= cls.maximum_distance else cls.maximum_distance
+            distances = np.random.randint(cls.minimum_distance, max_distance, how_many_step)
             distances.sort()
 
+            metrage = distances[0]
             for d in distances:
                 adding_seconds = d // cls.avg_speed
-                subpoints = l.geometry.interpolate(d)
+                subpoints = l.geometry.interpolate(metrage)
                 start_date += timedelta(seconds=adding_seconds)
 
                 p = {'geometry': subpoints,
                      'wayid': l.osmid,  # which way id is snapped?
                      'Timestamp': start_date}
                 points.append(p)
+                metrage += d
 
         # points
         points_gdf = gpd.GeoDataFrame(points, crs=cls.crs)
@@ -128,7 +138,6 @@ class DummyDataManipulator:
         points_gdf.reset_index(inplace=True)
         points_gdf.rename(columns={'index': 'ROWID'}, inplace=True)
         points_gdf.set_geometry('geometry', inplace=True)
-        # points_gdf.drop(columns=['wayid'], inplace=True)
 
         # dummy
         if add_dummy:
@@ -138,5 +147,7 @@ class DummyDataManipulator:
 
         points_gdf['DTYPE'] = 'DYNAMIC'
         points_gdf.drop(columns=['wayid'], inplace=True)
+
+        print(f"Generated points : {len(points)}")
 
         return points_gdf
