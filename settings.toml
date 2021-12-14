@@ -18,18 +18,18 @@ use_osmnx = "False"  # Downloads data if set True
 
 [STATIC_POINTS]
 bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
-sample_count = 2000  # how many static points should be added?
+sample_count = 200  # how many static points should be added?
 run = 1
 
 [DYNAMIC_POINTS]
 minimum_distance = 100  # minimum footstep meters
 maximum_distance = 300 # max footstep meters
 avg_speed = 1.4 # pedestrian speed: m/s
-run = 0
+run = 1
 
 [RECURSIVE_POINTS]
 recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
-repeated_times = 20  # how many times should we duplicate?
+repeated_times = 2  # how many times should we duplicate?
 wait_min = 30
 run = 1
 
