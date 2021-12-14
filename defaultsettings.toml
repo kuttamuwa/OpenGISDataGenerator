@@ -1,0 +1,56 @@
+[LOCATION_SETTINGS]
+address = 'Bucharest, Romania'  # USED BY OSM
+crs = "epsg:3857"  # coordinate system
+reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
+
+[POI_SETTINGS]
+poi_center = [44.419273, 26.104215]  # lon lat, POI
+poi_buffer_distance = 1000
+# https://wiki.openstreetmap.org/wiki/Map_features#Entertainment.2C_Arts_.26_Culture
+poi_tags = """{"amenity": ["restaurant", "pub", "hotel",
+"hospital", "social_facility", "university", "veterinary", "social_center", "police"],
+"building": ["public"],
+"shop": ["jewelry"]}"""
+
+[OSM_SETTINGS]
+network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
+use_osmnx = "False"  # Downloads data if set True
+
+[STATIC_POINTS]
+bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
+sample_count = 2000  # how many static points should be added?
+run = 1
+
+[DYNAMIC_POINTS]
+minimum_distance = 100  # minimum footstep meters
+maximum_distance = 300 # max footstep meters
+avg_speed = 1.4 # pedestrian speed: m/s
+run = 0
+
+[RECURSIVE_POINTS]
+recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
+repeated_times = 20  # how many times should we duplicate?
+wait_min = 30
+run = 1
+
+[DATE_SETTINGS]
+start_date = "2019-8-03 16:40:21"
+end_date = "2021-12-03 15:40:21"
+date_mixing = "True"  # Generate random date specified start_date-end_date or assign each as start_date
+
+
+[PERSON]
+min_age = 18
+max_age = 70
+
+[DB]
+host = "127.0.0.1"
+username = "postgres"
+password = "figo1190"
+db = 'postgis_30_sample'
+port = 5432
+points_table_name = 'points'
+lines_table_name = 'lines'
+poi_table_name = 'pois'
+if_exists='append'  # fail, append, replace
+
