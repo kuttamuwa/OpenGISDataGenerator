@@ -121,9 +121,11 @@ class DummyDataManipulator:
 
             metrage = distances[0]
             for d in distances:
-                adding_seconds = d // cls.avg_speed
+                adding_minutes = float(d // cls.avg_speed)
                 subpoints = l.geometry.interpolate(metrage)
-                start_date += timedelta(seconds=adding_seconds)
+                start_date += timedelta(minutes=adding_minutes)
+                # todo: start date saçmasapan geliyor, eklenerek gelmiyor.
+                # case: Baran Sezgin
 
                 p = {'geometry': subpoints,
                      'wayid': l.osmid,  # which way id is snapped?

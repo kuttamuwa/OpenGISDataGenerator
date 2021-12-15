@@ -6,6 +6,9 @@ in loaders.py in jinja2
 ## Install Anaconda 
 Python: 3.10
 
+Install OSMnX:
+https://osmnx.readthedocs.io/en/stable/
+
 conda config --prepend channels conda-forge
 conda create -n oxenv --strict-channel-priority osmnx
 

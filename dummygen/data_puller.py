@@ -50,7 +50,7 @@ class DataStore:
     bbox = static_settings.bbox
 
     network_type = osm_settings.network_type
-    use_osmnx = osm_settings.use_osmnx
+    use_osmnx = ast.literal_eval(osm_settings.use_osmnx)
 
     poi_tags = ast.literal_eval(poi_settings.poi_tags)
     poi_center = poi_settings.poi_center

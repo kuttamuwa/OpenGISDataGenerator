@@ -4,17 +4,18 @@ crs = "epsg:3857"  # coordinate system
 reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
 
 [POI_SETTINGS]
-poi_center = [44.419273, 26.104215]  # lon lat, POI
-poi_buffer_distance = 1000
+poi_center = [44.454618, 26.086791]  # lon lat, POI
+poi_buffer_distance = 3000
 # https://wiki.openstreetmap.org/wiki/Map_features#Entertainment.2C_Arts_.26_Culture
 poi_tags = """{"amenity": ["restaurant", "pub", "hotel",
 "hospital", "social_facility", "university", "veterinary", "social_center", "police"],
 "building": ["public"],
-"shop": ["jewelry"]}"""
+"shop": ["jewelry"], "tourism": ["museum"]}
+"""
 
 [OSM_SETTINGS]
 network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
-use_osmnx = "False"  # Downloads data if set True
+use_osmnx = "True"  # Downloads data if set True
 
 [STATIC_POINTS]
 bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
@@ -28,10 +29,10 @@ avg_speed = 1.4 # pedestrian speed: m/s
 run = 0
 
 [RECURSIVE_POINTS]
-recursive_sample = 200  # we will duplicate 20 rows of generated points for each step till repeated_times
-repeated_times = 2  # how many times should we duplicate?
+recursive_sample = 5  # we will duplicate 20 rows of generated points for each step till repeated_times
+repeated_times = 4  # how many times should we duplicate?
 wait_min = 30
-run = 0
+run = 1
 
 [DATE_SETTINGS]
 start_date = "2019-8-03 16:40:21"
