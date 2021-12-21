@@ -111,6 +111,7 @@ class DummyDataManipulator:
             _gender = random.choice([Gender.MALE, Gender.FEMALE])
             fname = cls.dummy_person.first_name(gender=_gender)
             lname = cls.dummy_person.last_name(gender=_gender)
+            age = cls.dummy_person.age(person_settings.min_age, person_settings.max_age)
             pid = uuid.uuid4()
             q = random.randint(0, 5)
 
@@ -122,7 +123,8 @@ class DummyDataManipulator:
                     'Last Name': lname,
                     'Gender': _gender.name,
                     'PersonID': pid,
-                    'Quality': q
+                    'Quality': q,
+                    'Age': age
                 }
 
                 points.append(p)

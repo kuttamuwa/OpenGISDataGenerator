@@ -146,12 +146,12 @@ class DataStore:
         repeated_times = recursive_settings.repeated_times
         sample_count = recursive_settings.recursive_sample
 
-        while repeated_times > 0:
-            self.generate_recursive_points(sample_count=sample_count)
-            print(f"Recursive Points are generated, \n "
-                  f"Length of all points : {len(self.points)}")
-            repeated_times += -1
-            print(f"Recursive last : {repeated_times}")
+        # while repeated_times > 0:
+        self.generate_recursive_points(sample_count=sample_count, repeated_times=repeated_times)
+        print(f"Recursive Points are generated, \n "
+              f"Length of all points : {len(self.points)}")
+        # repeated_times += -1
+        # print(f"Recursive last : {repeated_times}")
 
         self._save_points()
         print("Recursive points are generated and saved ")
@@ -173,23 +173,26 @@ class DataStore:
         self._save_points()
         print("Points along line saved !")
 
-    def generate_recursive_points(self, sample_count=1000):
+    def generate_recursive_points(self, sample_count=1000, repeated_times=5):
         """
         Sampled count of points will be duplicated with different attributes
         :return:
         """
 
         points = self.points.sample(sample_count)
-
-        # different attributes
-        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
         points['DTYPE'] = 'RECURSIVE'
 
-        if self.points is None:
-            self.points = points
-        else:
-            self.points = self.points.append(points)
-        print(f"Appended points with recursive")
+        while repeated_times > 0:
+            # different attributes
+            points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
+
+            if self.points is None:
+                self.points = points
+            else:
+                self.points = self.points.append(points)
+
+            repeated_times += - 1
+            print(f"Appended points with recursive")
 
     def generate_random_points_shapely(self):
         xmin, ymin, xmax, ymax = self.bbox
