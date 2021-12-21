@@ -116,8 +116,8 @@ class DataStore:
             lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
                        inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
-            lines['length'] = lines['geometry'].length
-            lines = lines[lines['length'] > dynamic_settings.minimum_distance]
+            # lines['length'] = lines['geometry'].length
+            # lines = lines[lines['length'] > dynamic_settings.minimum_distance]
 
             if set:
                 self.lines = lines
@@ -153,7 +153,6 @@ class DataStore:
             repeated_times += -1
             print(f"Recursive last : {repeated_times}")
 
-        self.points.drop_duplicates(['geometry', 'Timestamp'], inplace=True)
         self._save_points()
         print("Recursive points are generated and saved ")
 
@@ -162,7 +161,7 @@ class DataStore:
         print(f"Static points are generated and saved. Length : {len(self.points)}")
 
     def dynamic_points(self):
-        points = DummyDataManipulator.generate_points_along_line(self.lines, add_dummy=True)
+        points = DummyDataManipulator.generate_points_along_line(self.lines)
         print(f"Random points along the line are generated, length : {len(points)} ")
 
         if self.points is None:
@@ -183,7 +182,7 @@ class DataStore:
         points = self.points.sample(sample_count)
 
         # different attributes
-        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)  # like they're waiting for half hour
+        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
         points['DTYPE'] = 'RECURSIVE'
 
         if self.points is None:
@@ -341,11 +340,31 @@ class DataStore:
         except:
             pass
 
+    @classmethod
+    def get_point_counts(cls):
+        db.execute("SELECT COUNT('*') FROM POINTS")
+
     @staticmethod
     def _clean_points():
         try:
             db.execute("DELETE FROM POINTS")
             print("Points are cleaned ! ")
+        except:
+            pass
+
+    @staticmethod
+    def _drop_lines():
+        try:
+            db.execute("DROP TABLE LINES")
+            print("Lines are clenad !")
+        except:
+            pass
+
+    @staticmethod
+    def _drop_pois():
+        try:
+            db.execute("DROP TABLE POIS")
+            print("Dropped pois")
         except:
             pass
 

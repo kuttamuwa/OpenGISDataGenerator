@@ -28,11 +28,6 @@ class DummyDataManipulator:
     end_date = pd.to_datetime(date_settings.get('end_date', datetime.now() + timedelta(hours=10)))
     date_mixing = ast.literal_eval(date_settings.get('date_mixing', True))
 
-    # distances
-    minimum_distance = dynamic_settings.minimum_distance
-    maximum_distance = dynamic_settings.maximum_distance
-    avg_speed = dynamic_settings.avg_speed
-
     # person
     dummy_person = Person(locale='tr')
     min_age = person_settings.min_age
@@ -58,7 +53,6 @@ class DummyDataManipulator:
         points['Quality'] = [random.randint(0, 5) for _ in range(len(points))]
         points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]).name for _ in range(len(points))]
 
-        # todo: ?
         points['First Name'] = [cls.dummy_person.first_name() for _ in range(len(points))]
         points['Last Name'] = [cls.dummy_person.last_name() for _ in range(len(points))]
 
@@ -83,7 +77,6 @@ class DummyDataManipulator:
         x['Gender'] = _gender.name
         x['PersonID'] = uuid.uuid4()
 
-        # todo: ?
         x['First Name'] = cls.dummy_person.first_name(gender=_gender)
         x['Last Name'] = cls.dummy_person.last_name(gender=_gender)
 
@@ -94,61 +87,56 @@ class DummyDataManipulator:
         return x
 
     @classmethod
-    def generate_points_along_line(cls, lines: gpd.GeoDataFrame, add_dummy=True, how_many_step=1):
+    def generate_points_along_line(cls, lines: gpd.GeoDataFrame):
         """
         Downloads OSM data if reload = True
         Generate points along lines and sum up.
 
         :param lines:
-        :param add_dummy:
-        :param how_many_step: 1 is default. Each line will have 1 person with one time.
-
         :return:
         """
 
         points = []
 
         # filter
-        lines = lines[lines.length > cls.minimum_distance]
+        # lines = lines[lines.length > cls.maximum_distance]
 
         print(f"Count of lines: {len(lines)}")
         for _, l in lines.iterrows():
             start_date = cls.random_date()
 
-            max_distance = l.length if l.length >= cls.maximum_distance else cls.maximum_distance
-            distances = np.random.randint(cls.minimum_distance, max_distance, how_many_step)
+            distances = np.random.randint(0, dynamic_settings.maximum_distance, np.random.randint(1, dynamic_settings.max_step))
             distances.sort()
 
-            metrage = distances[0]
-            for d in distances:
-                adding_minutes = float(d // cls.avg_speed)
-                subpoints = l.geometry.interpolate(metrage)
-                start_date += timedelta(minutes=adding_minutes)
-                # todo: start date saçmasapan geliyor, eklenerek gelmiyor.
-                # case: Baran Sezgin
+            _gender = random.choice([Gender.MALE, Gender.FEMALE])
+            fname = cls.dummy_person.first_name(gender=_gender)
+            lname = cls.dummy_person.last_name(gender=_gender)
+            pid = uuid.uuid4()
+            q = random.randint(0, 5)
 
-                p = {'geometry': subpoints,
-                     'wayid': l.osmid,  # which way id is snapped?
-                     'Timestamp': start_date}
+            for d in distances:
+                p = {
+                    'geometry': l.geometry.interpolate(d),
+                    'Timestamp': start_date + timedelta(minutes=float(d // dynamic_settings.avg_speed)),
+                    'First Name': fname,
+                    'Last Name': lname,
+                    'Gender': _gender.name,
+                    'PersonID': pid,
+                    'Quality': q
+                }
+
                 points.append(p)
-                metrage += d
+
+            if len(points) > dynamic_settings.max_count:
+                break
 
         # points
         points_gdf = gpd.GeoDataFrame(points, crs=cls.crs)
-        points_gdf = points_gdf[points_gdf['wayid'].apply(lambda x: str(x).isdigit())]
         points_gdf.drop_duplicates('geometry', inplace=True)
         points_gdf.reset_index(inplace=True)
         points_gdf.rename(columns={'index': 'ROWID'}, inplace=True)
         points_gdf.set_geometry('geometry', inplace=True)
-
-        # dummy
-        if add_dummy:
-            points_grouped = points_gdf.groupby('wayid')
-            points_grouped = points_grouped.apply(cls.add_dummy_fields_fn, add_timestamp=False)
-            points_gdf = points_grouped
-
         points_gdf['DTYPE'] = 'DYNAMIC'
-        points_gdf.drop(columns=['wayid'], inplace=True)
 
         print(f"Generated points : {len(points)}")
 

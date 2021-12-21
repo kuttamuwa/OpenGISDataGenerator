@@ -1,7 +1,7 @@
 [LOCATION_SETTINGS]
 address = 'Bucharest, Romania'  # USED BY OSM
 crs = "epsg:3857"  # coordinate system
-reload = "True"  # points data will be generated again AFTER clean table if set True it will append if set False
+reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
 
 [POI_SETTINGS]
 poi_center = [44.420381, 26.127017]  # lon lat, POI
@@ -23,16 +23,17 @@ sample_count = 200  # how many static points should be added?
 run = 1
 
 [DYNAMIC_POINTS]
-minimum_distance = 100  # minimum footstep meters
 maximum_distance = 300 # max footstep meters
 avg_speed = 20 # pedestrian speed: m/s
 run = 1
+max_step = 2  # maximum people count for each line
+max_count = 300
 
 [RECURSIVE_POINTS]
 recursive_sample = 5  # we will duplicate 20 rows of generated points for each step till repeated_times
 repeated_times = 4  # how many times should we duplicate?
 wait_min = 30
-run = 0
+run = 1
 
 [DATE_SETTINGS]
 start_date = "2019-8-03 16:40:21"
