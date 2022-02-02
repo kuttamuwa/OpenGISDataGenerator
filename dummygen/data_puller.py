@@ -350,10 +350,12 @@ class DataStore:
     @staticmethod
     def point_write_mongodb(gdf, table_name):
         geodict = gdf.to_dict(orient='records')
+        pid = True if 'PersonID' in gdf.columns else False
         for i in geodict:
             v = i['geometry']
             i['geometry'] = [v.x, v.y]
-            i['PersonID'] = str(i['PersonID'])
+            if pid:
+                i['PersonID'] = str(i['PersonID'])
 
         # date to str
         if 'Timestamp' in gdf.columns:
