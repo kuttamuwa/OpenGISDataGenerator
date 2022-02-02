@@ -18,22 +18,22 @@ network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_s
 use_osmnx = "False"  # Downloads data if set True
 
 [STATIC_POINTS]
+run = 1
 bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
 sample_count = 200  # how many static points should be added?
-run = 1
 
 [DYNAMIC_POINTS]
+run = 1
 maximum_distance = 300 # max footstep meters
 avg_speed = 20 # pedestrian speed: m/s
-run = 1
 max_step = 2  # maximum people count for each line
 max_count = 300
 
 [RECURSIVE_POINTS]
+run = 1
 recursive_sample = 5  # we will duplicate 20 rows of generated points for each step till repeated_times
 repeated_times = 4  # how many times should we duplicate?
 wait_min = 30
-run = 1
 
 [DATE_SETTINGS]
 start_date = "2019-8-03 16:40:21"

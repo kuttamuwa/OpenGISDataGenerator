@@ -7,8 +7,7 @@ from datetime import timedelta
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
-from shapely.geometry import Point, LineString
-from sqlalchemy.exc import ProgrammingError
+from shapely.geometry import Point, LineString, Polygon
 
 from config import settings
 from db.connector import db, if_exists
@@ -115,8 +114,6 @@ class DataStore:
             lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
                        inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
-            # lines['length'] = lines['geometry'].length
-            # lines = lines[lines['length'] > dynamic_settings.minimum_distance]
 
             if set:
                 self.lines = lines
@@ -183,6 +180,7 @@ class DataStore:
 
         while repeated_times > 0:
             # different attributes
+            points['Timestamp'] = [pd.Timestamp(i) for i in points['Timestamp']]
             points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
 
             if self.points is None:
@@ -291,7 +289,7 @@ class DataStore:
         print("Lines are loading..")
         try:
             self.lines = self.read_line_mongodb('lines', )
-        except ProgrammingError:
+        except ValueError:
             warnings.warn(f"Lines are downloading..")
             self.download_lines(save=True, set=True)
 
@@ -308,7 +306,7 @@ class DataStore:
                 print("Generated points will be appended !")
                 self.generate_points()
 
-            except ProgrammingError:
+            except ValueError:
                 warnings.warn(f"Points are generating..")
                 self.generate_points()
 
@@ -322,7 +320,7 @@ class DataStore:
             if self.pois is None:
                 self.pois = self.read_point_mongodb('pois', ('name', 'geometry'))
                 self.download_poi()
-        except ProgrammingError:
+        except ValueError:
             warnings.warn(f"Couldn't read POIS table")
             self.download_poi()
 
@@ -344,7 +342,7 @@ class DataStore:
         print("Lines are saved.")
 
     def _save_pois(self):
-        self.point_write_mongodb(self.pois, 'pois')
+        self.pois_write_mongodb(self.pois, 'pois')
         print("POIs are saved")
 
     # Mongodb
@@ -353,8 +351,9 @@ class DataStore:
     def point_write_mongodb(gdf, table_name):
         geodict = gdf.to_dict(orient='records')
         for i in geodict:
-            v = i['coordinates']
-            i['coordinates'] = [v.x, v.y]
+            v = i['geometry']
+            i['geometry'] = [v.x, v.y]
+            i['PersonID'] = str(i['PersonID'])
 
         # date to str
         if 'Timestamp' in gdf.columns:
@@ -365,12 +364,32 @@ class DataStore:
 
         db.gis.get_collection(table_name).insert_many(geodict)
 
+    def pois_write_mongodb(self, gdf, table_name):
+        gdf['polygon'] = gdf.geometry.apply(lambda x: True if isinstance(x, Polygon) else False)
+        gdf_point = gdf[gdf['polygon']]
+        gdf_polygon = gdf[gdf['polygon'] == False]
+
+        self.point_write_mongodb(gdf_point, 'pois')
+        self.polygon_write_mongodb(gdf_polygon, 'pois_polygon')
+
+    @staticmethod
+    def polygon_write_mongodb(gdf, table_name):
+        pass
+        # todo:
+        # geodict = gdf.to_dict(orient='records')
+        # for i in geodict:
+        #     i['geometry'] = None
+        #
+        # if if_exists == 'replace':
+        #     db.gis.get_collection(table_name).drop()
+        #
+        # db.gis.get_collection(table_name).insert_many(geodict)
+
     @staticmethod
     def line_write_mongodb(gdf, table_name):
         geodict = gdf.to_dict(orient='records')
         for i in geodict:
-            v = i['coordinates']
-            i['coordinates'] = v
+            i['geometry'] = i['geometry'] = gdf.geometry.__geo_interface__['features']
 
         if if_exists == 'replace':
             db.gis.get_collection(table_name).drop()
@@ -388,6 +407,9 @@ class DataStore:
             results.append(data)
 
         gdf = gpd.GeoDataFrame(results)
+        if gdf.empty:
+            raise ValueError
+
         gdf.rename(columns={"coordinates": "geometry"}, inplace=True)
         geometries = [Point(i) for i in gdf['geometry']]
         gdf['geometry'] = geometries
@@ -403,6 +425,9 @@ class DataStore:
             results.append(data)
 
         gdf = gpd.GeoDataFrame(results)
+        if gdf.empty:
+            raise ValueError
+
         gdf.rename(columns={"coordinates": "geometry"}, inplace=True)
         geometries = [LineString(i) for i in gdf['geometry']]
         gdf['geometry'] = geometries
@@ -414,7 +439,6 @@ class DataStore:
     @staticmethod
     def delete_mongodb(table_name):
         db.gis.get_collection(table_name).drop()
-
 
 # if __name__ == '__main__':
 # from config import settings
