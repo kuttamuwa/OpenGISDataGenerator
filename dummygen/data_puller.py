@@ -366,11 +366,11 @@ class DataStore:
 
     def pois_write_mongodb(self, gdf, table_name):
         gdf['polygon'] = gdf.geometry.apply(lambda x: True if isinstance(x, Polygon) else False)
-        gdf_point = gdf[gdf['polygon']]
-        gdf_polygon = gdf[gdf['polygon'] == False]
+        gdf_point = gdf[gdf['polygon'] == False]
+        gdf_polygon = gdf[gdf['polygon']]
 
-        self.point_write_mongodb(gdf_point, 'pois')
-        self.polygon_write_mongodb(gdf_polygon, 'pois_polygon')
+        self.point_write_mongodb(gdf_point, table_name)
+        self.polygon_write_mongodb(gdf_polygon, f'{table_name}_polygon')
 
     @staticmethod
     def polygon_write_mongodb(gdf, table_name):
