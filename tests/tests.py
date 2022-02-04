@@ -24,11 +24,11 @@ class DataStoreTests(TestCase):
     ds = DataStore()
 
     def test_clean(self, lines=False, pois=False):
-        DataStore._clean_points()
+        DataStore.delete_mongodb('points')
         if lines:
-            DataStore._drop_lines()
+            DataStore.delete_mongodb('lines')
         if pois:
-            DataStore._drop_pois()
+            DataStore.delete_mongodb('pois')
 
     def test_run_static_points_shapely(self):
         points = self.ds.generate_random_points_shapely()
