@@ -369,23 +369,24 @@ class DataStore:
     def pois_write_mongodb(self, gdf, table_name):
         gdf['polygon'] = gdf.geometry.apply(lambda x: True if isinstance(x, Polygon) else False)
         gdf_point = gdf[gdf['polygon'] == False]
-        gdf_polygon = gdf[gdf['polygon']]
+        gdf_polygon = gdf[gdf['polygon'] == True]
 
         self.point_write_mongodb(gdf_point, table_name)
         self.polygon_write_mongodb(gdf_polygon, f'{table_name}_polygon')
 
     @staticmethod
     def polygon_write_mongodb(gdf, table_name):
-        pass
-        # todo:
-        # geodict = gdf.to_dict(orient='records')
-        # for i in geodict:
-        #     i['geometry'] = None
-        #
-        # if if_exists == 'replace':
-        #     db.gis.get_collection(table_name).drop()
-        #
-        # db.gis.get_collection(table_name).insert_many(geodict)
+        print(gdf)
+        geodict = gdf.to_dict(orient='records')
+        for i in geodict:
+            geom = i['geometry']
+            geom = [i for i in geom.exterior.coords]
+            i['geometry'] = geom
+
+        if if_exists == 'replace':
+            db.gis.get_collection(table_name).drop()
+
+        db.gis.get_collection(table_name).insert_many(geodict)
 
     @staticmethod
     def line_write_mongodb(gdf, table_name):
