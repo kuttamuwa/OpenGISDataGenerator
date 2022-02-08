@@ -1,0 +1,39 @@
+{
+    "typeName": "places",
+    "userData": {
+        "collection": "places"
+     },
+    "geometryDescriptor": {
+        "localName": "location",
+        "crs": {
+            "properties": {
+                "name": "urn:ogc:def:crs:EPSG:4326"
+            },
+            "type": "name"
+        }
+    },
+    "attributeDescriptors": [
+        {
+            "localName": "location",
+            "type": {
+                "binding": "org.locationtech.jts.geom.Point"
+            },
+            "userData": {
+                "encoding": "GeoJSON",
+                "mapping": "geometry"
+            }
+        },
+        {   "localName": "city",
+            "type": { "binding": "java.lang.String" },
+            "userData": { "mapping": "properties.name" }
+        },
+        {   "localName": "year",
+            "type": { "binding": "java.lang.String" },
+            "userData": { "mapping": "properties.year" }
+        },
+        {   "localName": "attendance",
+            "type": { "binding": "java.lang.String" },
+            "userData": {  "mapping": "properties.attendance" }
+        }
+    ]
+}
