@@ -1,0 +1,19 @@
+[
+  {
+    "_id": {
+      "$oid": "61fac05018274490a181fd95"
+    },
+    "geometry": [
+      2906600.5289659514,
+      5528815.522487254
+    ],
+    "polygon": false,
+    "DTYPE": "STATIC",
+    "Age": 51,
+    "First Name": "Berge",
+    "Last Name": "Biçer",
+    "Timestamp": "2021-11-11 11:35:03",
+    "PersonID" : "ce3c9e9c-c874-4757-b2a5-6fdec173b01a",
+    "ROWID": 0
+  }
+]

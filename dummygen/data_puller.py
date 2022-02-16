@@ -7,6 +7,8 @@ from datetime import timedelta
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
+import shapely.geometry
+from pymongo import GEOSPHERE
 from shapely.geometry import Point, LineString, Polygon
 
 from config import settings
@@ -348,23 +350,21 @@ class DataStore:
     # Mongodb
     # writing
     @staticmethod
-    def point_write_mongodb(gdf, table_name):
+    def point_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf = gdf.to_crs(epsg=4326)
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
+
+        if 'PersonID' in gdf.columns:
+            gdf['PersonID'] = gdf['PersonID'].astype(str)
+
         geodict = gdf.to_dict(orient='records')
-        pid = True if 'PersonID' in gdf.columns else False
-        for i in geodict:
-            v = i['geometry']
-            i['geometry'] = [v.x, v.y]
-            if pid:
-                i['PersonID'] = str(i['PersonID'])
 
-        # date to str
-        if 'Timestamp' in gdf.columns:
-            gdf.Timestamp = gdf.Timestamp.astype(str)
-
+        collection = db.gis.get_collection(table_name)
         if if_exists == 'replace':
-            db.gis.get_collection(table_name).drop()
+            collection.drop()
 
-        db.gis.get_collection(table_name).insert_many(geodict)
+        collection.create_index([("geometry", GEOSPHERE)])
+        collection.insert_many(geodict)
 
     def pois_write_mongodb(self, gdf, table_name):
         gdf['polygon'] = gdf.geometry.apply(lambda x: True if isinstance(x, Polygon) else False)
@@ -375,29 +375,31 @@ class DataStore:
         self.polygon_write_mongodb(gdf_polygon, f'{table_name}_polygon')
 
     @staticmethod
-    def polygon_write_mongodb(gdf, table_name):
-        print(gdf)
+    def polygon_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf.to_crs(epsg=4326, inplace=True)
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
         geodict = gdf.to_dict(orient='records')
-        for i in geodict:
-            geom = i['geometry']
-            geom = [i for i in geom.exterior.coords]
-            i['geometry'] = geom
+        collection = db.gis.get_collection(table_name)
 
         if if_exists == 'replace':
-            db.gis.get_collection(table_name).drop()
+            collection.drop()
+        collection.create_index([("geometry", GEOSPHERE)])
 
-        db.gis.get_collection(table_name).insert_many(geodict)
+        collection.insert_many(geodict)
 
     @staticmethod
-    def line_write_mongodb(gdf, table_name):
+    def line_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
+
         geodict = gdf.to_dict(orient='records')
-        for i in geodict:
-            i['geometry'] = i['geometry'] = gdf.geometry.__geo_interface__['features']
+
+        collection = db.gis.get_collection(table_name)
+        collection.create_index([("geometry", GEOSPHERE)])
 
         if if_exists == 'replace':
-            db.gis.get_collection(table_name).drop()
+            collection.drop()
 
-        db.gis.get_collection(table_name).insert_many(geodict)
+        collection.insert_many(geodict)
 
     # reading
     @staticmethod
@@ -417,6 +419,7 @@ class DataStore:
         geometries = [Point(i) for i in gdf['geometry']]
         gdf['geometry'] = geometries
         gdf.set_geometry('geometry', inplace=True)
+        gdf.set_crs(epsg=4326)
 
         return gdf
 
@@ -428,13 +431,12 @@ class DataStore:
             results.append(data)
 
         gdf = gpd.GeoDataFrame(results)
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: LineString(x['coordinates']))
+        gdf.set_geometry('geometry', inplace=True)
+        gdf.set_crs(epsg=4326, inplace=True)
+
         if gdf.empty:
             raise ValueError
-
-        gdf.rename(columns={"coordinates": "geometry"}, inplace=True)
-        geometries = [LineString(i) for i in gdf['geometry']]
-        gdf['geometry'] = geometries
-        gdf.set_geometry('geometry', inplace=True)
 
         return gdf
 
