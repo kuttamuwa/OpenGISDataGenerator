@@ -116,7 +116,6 @@ class DataStore:
             lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
                        inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
-
             if set:
                 self.lines = lines
 
@@ -212,14 +211,14 @@ class DataStore:
 
         return points
 
-    def generate_random_points_osmnx(self):
-        Gp = ox.project_graph(self.graph, to_crs=self.crs)
-        random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
-        random_points = gpd.GeoDataFrame(random_points)
-        random_points.rename(columns={0: 'geometry'}, inplace=True)
-        random_points.set_geometry('geometry', inplace=True)
-
-        return random_points
+    # def generate_random_points_osmnx(self):
+    #     Gp = ox.project_graph(self.graph, to_crs=self.crs)
+    #     random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
+    #     random_points = gpd.GeoDataFrame(random_points)
+    #     random_points.rename(columns={0: 'geometry'}, inplace=True)
+    #     random_points.set_geometry('geometry', inplace=True)
+    #
+    #     return random_points
 
     def generate_random_points_in_area(self, save=True, set=True, add_dummy=True) -> gpd.GeoDataFrame:
         """
@@ -227,12 +226,12 @@ class DataStore:
         :return:
         """
 
-        if self.use_osmnx is True:
-            print("Generating points with osmnx")
-            random_points = self.generate_random_points_osmnx()
-        else:
-            print("Generating points with shapely")
-            random_points = self.generate_random_points_shapely()
+        # if self.use_osmnx is True:
+        #     print("Generating points with osmnx")
+        #     random_points = self.generate_random_points_osmnx()
+        # else:
+        print("Generating points with shapely")
+        random_points = self.generate_random_points_shapely()
 
         random_points['DTYPE'] = 'STATIC'
 
@@ -258,6 +257,7 @@ class DataStore:
         print("Downloading POI")
         print(f"poi tags : {self.poi_tags}")
         poi_gdf = ox.geometries_from_point(self.poi_center, tags=self.poi_tags, dist=self.poi_buffer_distance)
+        poi_gdf['GEO_TYPE'] = poi_gdf.geometry.type
 
         # projection
         poi_gdf.to_crs(crs=self.crs, inplace=True)
@@ -279,7 +279,7 @@ class DataStore:
                 remained_columns = poi_gdf.columns
 
             # filtering
-            remained_columns = [i for i in remained_columns if i not in ('geometry', 'name')]
+            remained_columns = [i for i in remained_columns if i not in ('geometry', 'name', 'GEO_TYPE')]
             self.pois.drop(columns=remained_columns, inplace=True)
 
             # drop duplicates
@@ -327,7 +327,6 @@ class DataStore:
             self.download_poi()
 
     def _save_points(self, replace=False):
-        self.points['ROWID'] = [i for i in range(len(self.points))]
         if replace:
             self.delete_mongodb('points')
             self.point_write_mongodb(self.points, 'points')
@@ -367,9 +366,8 @@ class DataStore:
         collection.insert_many(geodict)
 
     def pois_write_mongodb(self, gdf, table_name):
-        gdf['polygon'] = gdf.geometry.apply(lambda x: True if isinstance(x, Polygon) else False)
-        gdf_point = gdf[gdf['polygon'] == False]
-        gdf_polygon = gdf[gdf['polygon'] == True]
+        gdf_point = gdf[gdf['GEO_TYPE'] == 'Point']
+        gdf_polygon = gdf[gdf['GEO_TYPE'] == 'Polygon']
 
         self.point_write_mongodb(gdf_point, table_name)
         self.polygon_write_mongodb(gdf_polygon, f'{table_name}_polygon')
@@ -389,6 +387,7 @@ class DataStore:
 
     @staticmethod
     def line_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf.to_crs(epsg=4326, inplace=True)
         gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
 
         geodict = gdf.to_dict(orient='records')
@@ -405,7 +404,7 @@ class DataStore:
     @staticmethod
     def read_point_mongodb(table_name, column_list=('geometry', 'DTYPE', 'Age',
                                                     'Quality', 'Gender', 'First Name', 'Last Name',
-                                                    'Timestamp', 'PersonID', 'ROWID')):
+                                                    'Timestamp', 'PersonID')):
         results = []
         for v in db.gis.get_collection(table_name).find():
             data = {k: v[k] for k in column_list}
@@ -415,11 +414,9 @@ class DataStore:
         if gdf.empty:
             raise ValueError
 
-        gdf.rename(columns={"coordinates": "geometry"}, inplace=True)
-        geometries = [Point(i) for i in gdf['geometry']]
-        gdf['geometry'] = geometries
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: Point(x['coordinates']))
         gdf.set_geometry('geometry', inplace=True)
-        gdf.set_crs(epsg=4326)
+        gdf.set_crs(epsg=4326, inplace=True)
 
         return gdf
 
@@ -431,12 +428,12 @@ class DataStore:
             results.append(data)
 
         gdf = gpd.GeoDataFrame(results)
+        if gdf.empty:
+            raise ValueError
+
         gdf['geometry'] = gdf['geometry'].apply(lambda x: LineString(x['coordinates']))
         gdf.set_geometry('geometry', inplace=True)
         gdf.set_crs(epsg=4326, inplace=True)
-
-        if gdf.empty:
-            raise ValueError
 
         return gdf
 
