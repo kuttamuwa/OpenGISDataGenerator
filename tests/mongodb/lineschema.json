@@ -1,0 +1,21 @@
+{
+  "_id": {
+    "$oid": "61fac05018274490a181fd95"
+  },
+  "name": "Piața Arcul de Triumf",
+  "length": 22.934,
+  "osmid": 474757666,
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [
+        26.0771428,
+        44.4674366
+      ],
+      [
+        26.0773885,
+        44.467328
+      ]
+    ]
+  }
+} 

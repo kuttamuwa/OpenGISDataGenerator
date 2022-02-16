@@ -49,3 +49,68 @@ class DataStoreTests(TestCase):
 
         if len(dyn_points) != dynamic_settings.max_count:
             raise ValueError
+
+
+db.gis.stations.insert_one(
+    {
+        "id": "1",
+        "name": "station 1",
+        "contact": {
+            "mail": "station1@mail.com"
+        },
+        "geometry": {
+            "coordinates": [
+                50,
+                60
+            ],
+            "type": "Point"
+        },
+        "measurements": [
+            {
+                "name": "temp",
+                "unit": "c",
+                "values": [
+                    {
+                        "time": 1482146800,
+                        "value": 20
+                    }
+                ]
+            },
+            {
+                "name": "wind",
+                "unit": "km/h",
+                "values": [
+                    {
+                        "time": 1482146833,
+                        "value": 155
+                    }
+                ]
+            }
+        ]
+    }
+)
+
+db.gis.stations.create_index({"geometry": "2dsphere"}.items())
+
+
+dbm.gis.newpoints.insert_one(
+    {
+        "id": "1",
+        "First Name": "Berge",
+        "Last Name": "Biçer",
+        "geometry": {
+            "coordinates": [
+                50,
+                60
+            ],
+            "type": "Point"
+        },
+        "DTYPE": "STATIC",
+        "Gender": "MALE",
+        "Timestamp": 1482146800,
+        "PersonID": "ce3c9e9c-c874-4757-b2a5-6fdec173b01a",
+        "ROWID": 0,
+    }
+)
+
+dbm.gis.newpoints.create_index({"geometry": "2dsphere"}.items())
