@@ -209,7 +209,7 @@ class DataStore:
         points = gpd.GeoDataFrame(points)
         points.rename(columns={0: 'geometry'}, inplace=True)
         points.set_geometry('geometry', inplace=True)
-        points = points.set_crs(crs=self.crs)
+        points = points.to_crs(crs=self.crs)
 
         return points
 
