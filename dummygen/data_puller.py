@@ -26,8 +26,7 @@ recursive_settings = settings.RECURSIVE_POINTS
 
 date_settings = settings.DATE_SETTINGS
 
-ox.config(use_cache=True, log_console=True,
-          # default_crs=DUMMY_SETTINGS.crs
+ox.config(use_cache=True, log_console=True
           )
 
 

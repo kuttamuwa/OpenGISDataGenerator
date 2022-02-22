@@ -1,6 +1,6 @@
 [LOCATION_SETTINGS]
 address = 'Bucharest, Romania'  # USED BY OSM
-crs = "epsg:3857"  # coordinate system
+crs = "epsg:4326"  # coordinate system
 reload = "False"  # points data will be generated again AFTER clean table if set True it will append if set False
 
 [POI_SETTINGS]
