@@ -19,7 +19,7 @@ use_osmnx = "False"  # Downloads data if set True
 
 [STATIC_POINTS]
 run = 1
-bbox = [2885174.2106, 5515727.8165, 2923005.4767, 5546447.0036]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
+bbox = [44.390862, 26.008244, 44.472746, 26.201191]  # DOES NOT USE BY OSM ONLY FOR SHAPELY
 sample_count = 200  # how many static points should be added?
 
 [DYNAMIC_POINTS]
