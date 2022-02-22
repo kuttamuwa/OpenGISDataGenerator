@@ -7,8 +7,9 @@ from datetime import timedelta
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
-from shapely.geometry import Point
-from sqlalchemy.exc import ProgrammingError
+import shapely.geometry
+from pymongo import GEOSPHERE
+from shapely.geometry import Point, LineString, Polygon
 
 from config import settings
 from db.connector import db, if_exists
@@ -24,7 +25,6 @@ dynamic_settings = settings.DYNAMIC_POINTS
 recursive_settings = settings.RECURSIVE_POINTS
 
 date_settings = settings.DATE_SETTINGS
-
 
 ox.config(use_cache=True, log_console=True,
           # default_crs=DUMMY_SETTINGS.crs
@@ -116,9 +116,6 @@ class DataStore:
             lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
                        inplace=True)
             lines.drop_duplicates('geometry', inplace=True)
-            # lines['length'] = lines['geometry'].length
-            # lines = lines[lines['length'] > dynamic_settings.minimum_distance]
-
             if set:
                 self.lines = lines
 
@@ -184,6 +181,7 @@ class DataStore:
 
         while repeated_times > 0:
             # different attributes
+            points['Timestamp'] = [pd.Timestamp(i) for i in points['Timestamp']]
             points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
 
             if self.points is None:
@@ -213,14 +211,14 @@ class DataStore:
 
         return points
 
-    def generate_random_points_osmnx(self):
-        Gp = ox.project_graph(self.graph, to_crs=self.crs)
-        random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
-        random_points = gpd.GeoDataFrame(random_points)
-        random_points.rename(columns={0: 'geometry'}, inplace=True)
-        random_points.set_geometry('geometry', inplace=True)
-
-        return random_points
+    # def generate_random_points_osmnx(self):
+    #     Gp = ox.project_graph(self.graph, to_crs=self.crs)
+    #     random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
+    #     random_points = gpd.GeoDataFrame(random_points)
+    #     random_points.rename(columns={0: 'geometry'}, inplace=True)
+    #     random_points.set_geometry('geometry', inplace=True)
+    #
+    #     return random_points
 
     def generate_random_points_in_area(self, save=True, set=True, add_dummy=True) -> gpd.GeoDataFrame:
         """
@@ -228,12 +226,12 @@ class DataStore:
         :return:
         """
 
-        if self.use_osmnx is True:
-            print("Generating points with osmnx")
-            random_points = self.generate_random_points_osmnx()
-        else:
-            print("Generating points with shapely")
-            random_points = self.generate_random_points_shapely()
+        # if self.use_osmnx is True:
+        #     print("Generating points with osmnx")
+        #     random_points = self.generate_random_points_osmnx()
+        # else:
+        print("Generating points with shapely")
+        random_points = self.generate_random_points_shapely()
 
         random_points['DTYPE'] = 'STATIC'
 
@@ -259,6 +257,7 @@ class DataStore:
         print("Downloading POI")
         print(f"poi tags : {self.poi_tags}")
         poi_gdf = ox.geometries_from_point(self.poi_center, tags=self.poi_tags, dist=self.poi_buffer_distance)
+        poi_gdf['GEO_TYPE'] = poi_gdf.geometry.type
 
         # projection
         poi_gdf.to_crs(crs=self.crs, inplace=True)
@@ -280,7 +279,7 @@ class DataStore:
                 remained_columns = poi_gdf.columns
 
             # filtering
-            remained_columns = [i for i in remained_columns if i not in ('geometry', 'name')]
+            remained_columns = [i for i in remained_columns if i not in ('geometry', 'name', 'GEO_TYPE')]
             self.pois.drop(columns=remained_columns, inplace=True)
 
             # drop duplicates
@@ -291,8 +290,8 @@ class DataStore:
     def _load_lines(self):
         print("Lines are loading..")
         try:
-            self.lines = gpd.read_postgis("SELECT * FROM LINES", con=db, crs=self.crs, geom_col='geometry')
-        except ProgrammingError:
+            self.lines = self.read_line_mongodb('lines', )
+        except ValueError:
             warnings.warn(f"Lines are downloading..")
             self.download_lines(save=True, set=True)
 
@@ -300,16 +299,16 @@ class DataStore:
         print("Points are loading..")
         if self.reload_data:
             print("Reloading.. ")
-            self._drop_points()
+            self.delete_mongodb('points')
             self.generate_points()
         else:
             print("No reload !")
             try:
-                self.points = gpd.read_postgis("SELECT * FROM POINTS", con=db, crs=self.crs, geom_col='geometry')
+                self.points = self.read_point_mongodb('points')
                 print("Generated points will be appended !")
                 self.generate_points()
 
-            except ProgrammingError:
+            except ValueError:
                 warnings.warn(f"Points are generating..")
                 self.generate_points()
 
@@ -321,61 +320,162 @@ class DataStore:
         print("POIs are loading..")
         try:
             if self.pois is None:
-                self.pois = gpd.read_postgis("SELECT * FROM POIS", con=db, crs=self.crs, geom_col='geometry')
+                self.pois = self.read_point_mongodb('pois', ('name', 'geometry'))
                 self.download_poi()
-        except ProgrammingError:
+        except ValueError:
             warnings.warn(f"Couldn't read POIS table")
             self.download_poi()
 
     def _save_points(self, replace=False):
-        self.points['ROWID'] = [i for i in range(len(self.points))]
         if replace:
-            self.points.to_postgis('points', con=db, if_exists='replace')
+            self.delete_mongodb('points')
+            self.point_write_mongodb(self.points, 'points')
         else:
-            self.points.to_postgis('points', con=db, if_exists=if_exists)
+            self.point_write_mongodb(self.points, 'points')
         print("Points are saved")
-
-    @staticmethod
-    def _drop_points():
-        try:
-            db.execute("DROP TABLE POINTS")
-            print("Points table are dropped !")
-        except:
-            pass
 
     @classmethod
     def get_point_counts(cls):
-        db.execute("SELECT COUNT('*') FROM POINTS")
-
-    @staticmethod
-    def _clean_points():
-        try:
-            db.execute("DELETE FROM POINTS")
-            print("Points are cleaned ! ")
-        except:
-            pass
-
-    @staticmethod
-    def _drop_lines():
-        try:
-            db.execute("DROP TABLE LINES")
-            print("Lines are clenad !")
-        except:
-            pass
-
-    @staticmethod
-    def _drop_pois():
-        try:
-            db.execute("DROP TABLE POIS")
-            print("Dropped pois")
-        except:
-            pass
+        return db.gis.point.count_documents({})
 
     def _save_lines(self):
-        self.lines.to_postgis('lines', con=db, if_exists=if_exists)
+        self.line_write_mongodb(self.lines, 'lines')
         print("Lines are saved.")
 
     def _save_pois(self):
-        self.pois.to_postgis('pois', con=db, if_exists=if_exists)
+        self.pois_write_mongodb(self.pois, 'pois')
         print("POIs are saved")
 
+    # Mongodb
+    # writing
+    @staticmethod
+    def point_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf = gdf.to_crs(epsg=4326)
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
+
+        if 'PersonID' in gdf.columns:
+            gdf['PersonID'] = gdf['PersonID'].astype(str)
+
+        geodict = gdf.to_dict(orient='records')
+
+        collection = db.gis.get_collection(table_name)
+        if if_exists == 'replace':
+            collection.drop()
+
+        collection.create_index([("geometry", GEOSPHERE)])
+        collection.insert_many(geodict)
+
+    def pois_write_mongodb(self, gdf, table_name):
+        gdf_point = gdf[gdf['GEO_TYPE'] == 'Point']
+        gdf_polygon = gdf[gdf['GEO_TYPE'] == 'Polygon']
+
+        self.point_write_mongodb(gdf_point, table_name)
+        self.polygon_write_mongodb(gdf_polygon, f'{table_name}_polygon')
+
+    @staticmethod
+    def polygon_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf.to_crs(epsg=4326, inplace=True)
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
+        geodict = gdf.to_dict(orient='records')
+        collection = db.gis.get_collection(table_name)
+
+        if if_exists == 'replace':
+            collection.drop()
+        collection.create_index([("geometry", GEOSPHERE)])
+
+        collection.insert_many(geodict)
+
+    @staticmethod
+    def line_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
+        gdf.to_crs(epsg=4326, inplace=True)
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
+
+        geodict = gdf.to_dict(orient='records')
+
+        collection = db.gis.get_collection(table_name)
+        collection.create_index([("geometry", GEOSPHERE)])
+
+        if if_exists == 'replace':
+            collection.drop()
+
+        collection.insert_many(geodict)
+
+    # reading
+    @staticmethod
+    def read_point_mongodb(table_name, column_list=('geometry', 'DTYPE', 'Age',
+                                                    'Quality', 'Gender', 'First Name', 'Last Name',
+                                                    'Timestamp', 'PersonID')):
+        results = []
+        for v in db.gis.get_collection(table_name).find():
+            data = {k: v[k] for k in column_list}
+            results.append(data)
+
+        gdf = gpd.GeoDataFrame(results)
+        if gdf.empty:
+            raise ValueError
+
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: Point(x['coordinates']))
+        gdf.set_geometry('geometry', inplace=True)
+        gdf.set_crs(epsg=4326, inplace=True)
+
+        return gdf
+
+    @staticmethod
+    def read_line_mongodb(table_name, column_list=('osmid', 'name', 'length', 'geometry')):
+        results = []
+        for v in db.gis.get_collection(table_name).find():
+            data = {k: v[k] for k in column_list}
+            results.append(data)
+
+        gdf = gpd.GeoDataFrame(results)
+        if gdf.empty:
+            raise ValueError
+
+        gdf['geometry'] = gdf['geometry'].apply(lambda x: LineString(x['coordinates']))
+        gdf.set_geometry('geometry', inplace=True)
+        gdf.set_crs(epsg=4326, inplace=True)
+
+        return gdf
+
+    # delete
+    @staticmethod
+    def delete_mongodb(table_name):
+        db.gis.get_collection(table_name).drop()
+
+# if __name__ == '__main__':
+# from config import settings
+# from sqlalchemy import create_engine
+# from pymongo import MongoClient
+# import geopandas as gpd
+#
+# dbconf = settings.DB
+# points_table_name = dbconf.points_table_name
+# lines_table_name = dbconf.lines_table_name
+# if_exists = dbconf.if_exists
+# conn_string = f"postgresql+psycopg2://{dbconf.username}:{dbconf.password}@{dbconf.host}:{dbconf.port}/{dbconf.db}"
+# db = create_engine(conn_string)
+# pydb = MongoClient()
+#
+# gdf_point = gpd.read_postgis('select * from points', con=db, geom_col='geometry')
+# gdf_lines = gpd.read_postgis('select * from lines', con=db, geom_col='geometry')
+# gdf_pois = gpd.read_postgis('select * from pois', con=db, geom_col='geometry')
+#
+# gdf_point.Timestamp = gdf_point.Timestamp.astype(str)
+#
+# gdf_point.rename(columns={"geometry": "coordinates"}, inplace=True)
+# gdf_lines.rename(columns={"geometry": "coordinates"}, inplace=True)
+# gdf_pois.rename(columns={"geometry": "coordinates"}, inplace=True)
+
+# write them once
+# point_write(gdf_point, 'point')
+# point_write(gdf_lines, 'lines')
+# point_write(gdf_pois, 'pois')
+
+
+# write old data
+# point_write_mongodb(gdf_point, 'point')
+
+# read them
+# gdf_point_in = read_point_mongodb('point', gdf_point.columns)
+# gdf_lines_in = read_point_mongodb('point', gdf_lines.columns)
+# gdf_pois_in = read_point_mongodb('point', gdf_pois.columns)
