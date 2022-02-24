@@ -68,7 +68,7 @@ class DummyDataManipulator:
     def add_dummy_fields_fn(cls, x, add_timestamp=True):
         """
         Adds dummy fields into GeoDataFrame
-       
+
         :return:
         """
         _gender = random.choice([Gender.MALE, Gender.FEMALE])

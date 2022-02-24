@@ -83,25 +83,6 @@ class DataStore:
         except ConnectionError:
             raise ConnectionError("Internet bağlantınızı kontrol ediniz !")
 
-    @classmethod
-    def init_routing(cls):
-        cls.graph = ox.speed.add_edge_speeds(cls.graph)
-        cls.graph = ox.speed.add_edge_travel_times(cls.graph)
-
-    def __init__(self):
-        self.points = None
-        self.lines = None
-        self.pois = None
-
-        # load data
-        self.load()
-
-    def load(self):
-        self.download_graph()
-        self._load_lines()
-        self._load_points()
-        self._load_poi()
-
     def download_lines(self, save=True, set=True):
         """
         Get lines from osmnx
@@ -210,15 +191,6 @@ class DataStore:
         points = points.set_crs(crs=self.crs)
 
         return points
-
-    # def generate_random_points_osmnx(self):
-    #     Gp = ox.project_graph(self.graph, to_crs=self.crs)
-    #     random_points = ox.utils_geo.sample_points(ox.get_undirected(Gp), self.count)
-    #     random_points = gpd.GeoDataFrame(random_points)
-    #     random_points.rename(columns={0: 'geometry'}, inplace=True)
-    #     random_points.set_geometry('geometry', inplace=True)
-    #
-    #     return random_points
 
     def generate_random_points_in_area(self, save=True, set=True, add_dummy=True) -> gpd.GeoDataFrame:
         """
