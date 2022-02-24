@@ -11,18 +11,25 @@ Purpose: Collects
 import ast
 import random
 import uuid
-from datetime import datetime, timedelta
+import warnings
+from datetime import datetime
+from datetime import timedelta
 
 import geopandas as gpd
 import numpy as np
+import osmnx as ox
 import pandas as pd
+import shapely.geometry
+from colorama import Fore
 from mimesis import Person, Generic
 from mimesis.enums import Gender
 from mimesis.locales import TR
-
-from utils import random_date
+from pymongo import GEOSPHERE
+from shapely.geometry import Point, LineString
 
 from config import settings
+from db.connector import db, if_exists
+from utils import random_date
 
 loc_settings = settings.LOCATION_SETTINGS
 date_settings = settings.DATE_SETTINGS
@@ -39,8 +46,6 @@ recursive_settings = settings.RECURSIVE_POINTS
 
 address = loc_settings.address
 reload_data = ast.literal_eval(loc_settings.reload)
-
-count = static_settings.sample_count
 bbox = static_settings.bbox
 
 network_type = osm_settings.network_type
@@ -62,40 +67,114 @@ max_age = person_settings.max_age
 
 generic = Generic(locale=TR)
 
-import ast
-import random
-import warnings
-from datetime import datetime
-from datetime import timedelta
-
-import geopandas as gpd
-import osmnx as ox
-import pandas as pd
-import shapely.geometry
-from pymongo import GEOSPHERE
-from shapely.geometry import Point, LineString, Polygon
-
-from config import settings
-from db.connector import db, if_exists
-from errors.configerr import OSMNXMustbeTrue
-
 ox.config(use_cache=True, log_console=True,
           # default_crs=DUMMY_SETTINGS.crs
           )
 
-# OBJECTS
-graph = None
-points: gpd.GeoDataFrame = None
-lines: gpd.GeoDataFrame = None
-pois_points: gpd.GeoDataFrame = None
-pois_polygons: gpd.GeoDataFrame = None
+
+def save(lines: gpd.GeoDataFrame, table_name: str):
+    # epsg = int(crs.split(':')[-1])
+    # lines.to_crs(epsg=epsg, inplace=True)
+    lines['geometry'] = lines['geometry'].apply(lambda x: shapely.geometry.mapping(x))
+
+    geodict = lines.to_dict(orient='records')
+
+    collection = db.gis.get_collection(table_name)
+    collection.create_index([("geometry", GEOSPHERE)])
+
+    if if_exists == 'replace':
+        collection.drop()
+
+    collection.insert_many(geodict)
 
 
-# FUNCTIONS
-# data generator
-def add_dummy_fields(add_time=True, add_person_id=True):
+def read_lines(column_list=('osmid', 'name', 'length', 'geometry')):
+    results = []
+    for v in db.gis.lines.find():
+        data = {k: v[k] for k in column_list}
+        results.append(data)
+
+    gdf = gpd.GeoDataFrame(results)
+    if gdf.empty:
+        raise ValueError
+
+    gdf['geometry'] = gdf['geometry'].apply(lambda x: LineString(x['coordinates']))
+    gdf.set_geometry('geometry', inplace=True)
+    gdf.set_crs(epsg=4326, inplace=True)
+
+    return gdf
+
+
+def read_points(column_list=('geometry', 'DTYPE', 'Age',
+                             'Quality', 'Gender', 'First Name', 'Last Name',
+                             'Timestamp', 'PersonID')):
+    results = []
+    for v in db.gis.points.find():
+        data = {k: v[k] for k in column_list}
+        results.append(data)
+
+    gdf = gpd.GeoDataFrame(results)
+    if gdf.empty:
+        raise ValueError
+
+    gdf['geometry'] = gdf['geometry'].apply(lambda x: Point(x['coordinates']))
+    gdf.set_geometry('geometry', inplace=True)
+    gdf.set_crs(epsg=4326, inplace=True)
+
+    return gdf
+
+
+def download_lines(graph_obj):
+    lines = ox.graph_to_gdfs(graph_obj, nodes=False)
+    lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
+               inplace=True)
+    lines.drop_duplicates('geometry', inplace=True)
+    save(lines, 'lines')
+
+
+def download_pois():
+    poi_gdf = ox.geometries_from_point(poi_center, tags=poi_tags, dist=poi_buffer_distance)
+    poi_gdf['GEO_TYPE'] = poi_gdf.geometry.type
+
+    # projection
+    poi_gdf.to_crs(crs=crs, inplace=True)
+
+    if poi_gdf.empty:
+        warnings.warn("There is no downloaded POI around your center ! "
+                      "Please set another poi_center ! ")
+
+    else:
+        print(f"Downloaded poi : {poi_gdf.head(5)} \n"
+              f"Length : {len(poi_gdf)}")
+
+        gdf_point = poi_gdf[poi_gdf['GEO_TYPE'] == 'Point']
+        gdf_polygon = poi_gdf[poi_gdf['GEO_TYPE'] == 'Polygon']
+
+        save(gdf_point, 'pois_point')
+        save(gdf_polygon, 'pois_polygon')
+
+
+def download_osm_data():
+    # download graph object
+    graph_obj = ox.graph_from_place(address, network_type=network_type)
+    graph_obj = ox.project_graph(graph_obj, to_crs=crs)
+
+    # download lines
+    download_lines(graph_obj)
+    print(Fore.GREEN + "Lines are downloaded")
+
+    # download pois
+    download_pois()
+    print(Fore.GREEN + "Pois are downloaded")
+
+    return graph_obj
+
+
+# dummy data generator
+def add_dummy_fields(points: gpd.GeoDataFrame, add_time=True, add_person_id=True):
     """
     Adds dummy fields into GeoDataFrame
+    :param points:
     :param add_time:
     :param add_person_id:
     :return:
@@ -138,20 +217,40 @@ def add_dummy_fields_fn(x, add_timestamp=True):
     return x
 
 
+def _generate_random_points_shapely():
+    xmin, ymin, xmax, ymax = bbox
+    points = []
+    count = static_settings.sample_count
+
+    while count > 0:
+        x = random.uniform(xmin, xmax)
+        y = random.uniform(ymin, ymax)
+        point = Point(x, y)
+        points.append(point)
+        count += -1
+
+    points = gpd.GeoDataFrame(points)
+    points.rename(columns={0: 'geometry'}, inplace=True)
+    points.set_geometry('geometry', inplace=True)
+    points = points.set_crs(crs=crs)
+
+    return points
+
+
 def generate_points_along_line():
     """
     Generate points along lines and sum up.
     :return:
     """
 
-    generated_points_online = []
+    points = []
 
     # filter
     # lines = lines[lines.length > maximum_distance]
+    lines = read_lines()
 
     print(f"Count of lines: {len(lines)}")
     for _, l in lines.iterrows():
-        start_date_fn = random_date()
 
         distances = np.random.randint(0, dynamic_settings.maximum_distance,
                                       np.random.randint(1, dynamic_settings.max_step))
@@ -167,7 +266,7 @@ def generate_points_along_line():
         for d in distances:
             p = {
                 'geometry': l.geometry.interpolate(d),
-                'Timestamp': start_date_fn + timedelta(minutes=float(d // dynamic_settings.avg_speed)),
+                'Timestamp': start_date + timedelta(minutes=float(d // dynamic_settings.avg_speed)),
                 'First Name': fname,
                 'Last Name': lname,
                 'Gender': _gender.name,
@@ -176,375 +275,88 @@ def generate_points_along_line():
                 'Age': age
             }
 
-            generated_points_online.append(p)
+            points.append(p)
 
-        if len(generated_points_online) > dynamic_settings.max_count:
+        if len(points) > dynamic_settings.max_count:
             break
 
     # points
-    points_gdf = gpd.GeoDataFrame(generated_points_online, crs=crs)
+    points_gdf = gpd.GeoDataFrame(points, crs=crs)
     points_gdf.drop_duplicates('geometry', inplace=True)
     points_gdf.reset_index(inplace=True)
     points_gdf.rename(columns={'index': 'ROWID'}, inplace=True)
     points_gdf.set_geometry('geometry', inplace=True)
     points_gdf['DTYPE'] = 'DYNAMIC'
 
-    print(f"Generated points : {len(generated_points_online)}")
+    print(f"Generated points : {len(points)}")
+    points_gdf['PersonID'] = points_gdf['PersonID'].astype(str)
+    save(points_gdf, 'points')
 
     return points_gdf
 
 
-# data puller
-def download_graph():
-    """
-   Downloads OSM Data and generate random points as pandas DataFrame
-   :return:
-    """
-    try:
-        if graph is None and use_osmnx is True:
-            print("Loading graph..")
-            if address:
-                G = ox.graph_from_place(address, network_type=network_type)
-            else:
-                raise ValueError('bbox veya adres parametresi doldurulmalıdır')
-
-            print("Graph is created. Now projecting..")
-            graph = ox.project_graph(G, to_crs=crs)
-            print("Graph is loaded.")
-        else:
-            print("Graph is already loaded or not going to use !")
-    except ConnectionError:
-        raise ConnectionError("Internet bağlantınızı kontrol ediniz !")
-
-
-def download_lines():
-    """
-    Get lines from osmnx
-    :return:
-    """
-    if lines is None:
-        if graph is None:
-            raise OSMNXMustbeTrue("OSMNX set cannot be False if there is no data ! ")
-
-        print("Lines are downloading..")
-        lines = ox.graph_to_gdfs(graph, nodes=False)
-        lines.drop(columns=[i for i in lines.columns if i not in ('geometry', 'osmid', 'length', 'name')],
-                   inplace=True)
-        lines.drop_duplicates('geometry', inplace=True)
-
-        return lines
-
-
-def recursive_points():
-    print("Recursive points are generating..")
-    repeated_times = recursive_settings.repeated_times
-    sample_count = recursive_settings.recursive_sample
-
-    # while repeated_times > 0:
-    generate_recursive_points(sample_count=sample_count, repeated_times=repeated_times)
-    print(f"Recursive Points are generated, \n "
-          f"Length of all points : {len(points)}")
-    # repeated_times += -1
-    # print(f"Recursive last : {repeated_times}")
-
-    _save_points()
-    print("Recursive points are generated and saved ")
-
-
-def static_points(self):
-    self.generate_random_points_in_area(save=True)  # static points
-    print(f"Static points are generated and saved. Length : {len(self.points)}")
-
-
-def dynamic_points(self):
-    points = DummyDataManipulator.generate_points_along_line(self.lines)
-    print(f"Random points along the line are generated, length : {len(points)} ")
-
-    if self.points is None:
-        self.points = points
-    else:
-        self.points = self.points.append(points)
-
-    self.points.drop_duplicates(inplace=True)
-    self._save_points()
-    print("Points along line saved !")
-
-
-def generate_recursive_points(self, sample_count=1000, repeated_times=5):
-    """
-    Sampled count of points will be duplicated with different attributes
-    :return:
-    """
-
-    points = self.points.sample(sample_count)
-    points['DTYPE'] = 'RECURSIVE'
-
-    while repeated_times > 0:
-        # different attributes
-        points['Timestamp'] = [pd.Timestamp(i) for i in points['Timestamp']]
-        points['Timestamp'] = points['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
-
-        if self.points is None:
-            self.points = points
-        else:
-            self.points = self.points.append(points)
-
-        repeated_times += - 1
-        print(f"Appended points with recursive")
-
-
-def generate_random_points_shapely(self):
-    xmin, ymin, xmax, ymax = self.bbox
-    points = []
-    count = self.count
-
-    while count > 0:
-        x = random.uniform(xmin, xmax)
-        y = random.uniform(ymin, ymax)
-        point = Point(x, y)
-        points.append(point)
-        count += -1
-
-    points = gpd.GeoDataFrame(points)
-    points.rename(columns={0: 'geometry'}, inplace=True)
-    points.set_geometry('geometry', inplace=True)
-    points = points.set_crs(crs=self.crs)
-
-    return points
-
-
-def generate_random_points_in_area(self, save=True, set=True, add_dummy=True) -> gpd.GeoDataFrame:
+def generate_random_points_in_area(add_dummy=True) -> gpd.GeoDataFrame:
     """
     Downloads OSM Data and generate random points snapped to roads as pandas DataFrame
     :return:
     """
-
-    # if self.use_osmnx is True:
-    #     print("Generating points with osmnx")
-    #     random_points = self.generate_random_points_osmnx()
-    # else:
     print("Generating points with shapely")
-    random_points = self.generate_random_points_shapely()
+    random_points = _generate_random_points_shapely()
 
     random_points['DTYPE'] = 'STATIC'
 
     if add_dummy:
-        random_points = DummyDataManipulator.add_dummy_fields(random_points, add_time=True)
+        random_points = add_dummy_fields(random_points, add_time=True)
 
-    if set:
-        if self.points is not None:
-            self.points = self.points.append(random_points)
-        else:
-            self.points = random_points
-
-    if save:
-        self._save_points()
+    random_points['PersonID'] = random_points['PersonID'].astype(str)
+    save(random_points, 'points')
 
     return random_points
 
 
-def download_poi():
+def generate_recursive_points():
     """
-    Downloads POI
+    Sampled count of points will be duplicated with different attributes
     :return:
     """
-    print("Downloading POI")
-    print(f"poi tags : {poi_tags}")
-    poi_gdf = ox.geometries_from_point(poi_center, tags=poi_tags, dist=poi_buffer_distance)
-    poi_gdf['GEO_TYPE'] = poi_gdf.geometry.type
+    points = read_points()
+    repeated_times = recursive_settings.repeated_times
 
-    # projection
-    poi_gdf.to_crs(crs=crs, inplace=True)
+    while repeated_times > 0:
+        points_sampled = points.sample(recursive_settings.recursive_sample)
+        points_sampled['DTYPE'] = 'RECURSIVE'
 
-    if poi_gdf.empty:
-        warnings.warn("There is no downloaded POI around your center ! "
-                      "Please set another poi_center ! ")
+        # different attributes
+        points_sampled['Timestamp'] = [pd.Timestamp(i) for i in points_sampled['Timestamp']]
+        points_sampled['Timestamp'] = points_sampled['Timestamp'] + timedelta(minutes=recursive_settings.wait_min)
 
-    else:
-        print(f"Downloaded poi : {poi_gdf.head(5)} \n"
-              f"Length : {len(poi_gdf)}")
+        repeated_times += - 1
+        print(f"Appended points with recursive")
+        points.append(points_sampled)
 
-        if pois is not None:
-            print("POIs are adding..")
-            pois = pois.append(poi_gdf)
-            remained_columns = pois.columns
-        else:
-            pois = poi_gdf
-            remained_columns = poi_gdf.columns
-
-        # filtering
-        remained_columns = [i for i in remained_columns if i not in ('geometry', 'name', 'GEO_TYPE')]
-        pois.drop(columns=remained_columns, inplace=True)
-
-        # drop duplicates
-        pois.drop_duplicates('geometry', inplace=True)
-
-        _save_pois()
+    save(points, 'points')
+    return points
 
 
-def _load_lines():
-    print("Lines are loading..")
-    try:
-        lines = read_line_mongodb('lines', )
-    except ValueError:
-        warnings.warn(f"Lines are downloading..")
-        lines = download_lines()
-        _save_lines()
+def generate_points():
+    print("Started to generating..")
+    static_random_points = generate_random_points_in_area()
+    print(Fore.GREEN + "Static points are generated ! : \n"
+                       f"{static_random_points.head(10)}")
 
+    points_on_line = generate_points_along_line()
+    print(Fore.GREEN + "Points on the line (DYNAMIC) are generated ! : \n"
+                       f"{points_on_line.head(10)}")
 
-def _load_points():
-    print("Points are loading..")
-    if reload_data:
-        print("Reloading.. ")
-        delete_mongodb('points')
-        generate_points()
-    else:
-        print("No reload !")
-        try:
-            points = read_point_mongodb('points')
-            print("Generated points will be appended !")
-            generate_points()
-
-        except ValueError:
-            warnings.warn(f"Points are generating..")
-            generate_points()
-
-
-def _load_poi():
-    """
-    POI
-    :return:
-    """
-    print("POIs are loading..")
-    try:
-        if pois is None:
-            self.pois = self.read_point_mongodb('pois', ('name', 'geometry'))
-            self.download_poi()
-    except ValueError:
-        warnings.warn(f"Couldn't read POIS table")
-        self.download_poi()
-
-
-def _save_points(self, replace=False):
-    if replace:
-        self.delete_mongodb('points')
-        self.point_write_mongodb(self.points, 'points')
-    else:
-        self.point_write_mongodb(self.points, 'points')
-    print("Points are saved")
-
-
-def get_point_counts(cls):
-    return db.gis.point.count_documents({})
-
-
-def _save_lines(self):
-    self.line_write_mongodb(self.lines, 'lines')
-    print("Lines are saved.")
-
-
-def _save_pois(self):
-    self.pois_write_mongodb(self.pois, 'pois')
-    print("POIs are saved")
-
-
-# Mongodb
-def point_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
-    gdf = gdf.to_crs(epsg=4326)
-    gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
-
-    if 'PersonID' in gdf.columns:
-        gdf['PersonID'] = gdf['PersonID'].astype(str)
-
-    geodict = gdf.to_dict(orient='records')
-
-    collection = db.gis.get_collection(table_name)
-    if if_exists == 'replace':
-        collection.drop()
-
-    collection.create_index([("geometry", GEOSPHERE)])
-    collection.insert_many(geodict)
-
-
-def pois_write_mongodb(self, gdf, table_name):
-    gdf_point = gdf[gdf['GEO_TYPE'] == 'Point']
-    gdf_polygon = gdf[gdf['GEO_TYPE'] == 'Polygon']
-
-    self.point_write_mongodb(gdf_point, table_name)
-    self.polygon_write_mongodb(gdf_polygon, f'{table_name}_polygon')
-
-
-def polygon_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
-    gdf.to_crs(epsg=4326, inplace=True)
-    gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
-    geodict = gdf.to_dict(orient='records')
-    collection = db.gis.get_collection(table_name)
-
-    if if_exists == 'replace':
-        collection.drop()
-    collection.create_index([("geometry", GEOSPHERE)])
-
-    collection.insert_many(geodict)
-
-
-def line_write_mongodb(gdf: gpd.GeoDataFrame, table_name):
-    gdf.to_crs(epsg=4326, inplace=True)
-    gdf['geometry'] = gdf['geometry'].apply(lambda x: shapely.geometry.mapping(x))
-
-    geodict = gdf.to_dict(orient='records')
-
-    collection = db.gis.get_collection(table_name)
-    collection.create_index([("geometry", GEOSPHERE)])
-
-    if if_exists == 'replace':
-        collection.drop()
-
-    collection.insert_many(geodict)
-
-
-def read_point_mongodb(table_name, column_list=('geometry', 'DTYPE', 'Age',
-                                                'Quality', 'Gender', 'First Name', 'Last Name',
-                                                'Timestamp', 'PersonID')):
-    results = []
-    for v in db.gis.get_collection(table_name).find():
-        data = {k: v[k] for k in column_list}
-        results.append(data)
-
-    gdf = gpd.GeoDataFrame(results)
-    if gdf.empty:
-        raise ValueError
-
-    gdf['geometry'] = gdf['geometry'].apply(lambda x: Point(x['coordinates']))
-    gdf.set_geometry('geometry', inplace=True)
-    gdf.set_crs(epsg=4326, inplace=True)
-
-    return gdf
-
-
-def read_line_mongodb(table_name, column_list=('osmid', 'name', 'length', 'geometry')):
-    results = []
-    for v in db.gis.get_collection(table_name).find():
-        data = {k: v[k] for k in column_list}
-        results.append(data)
-
-    gdf = gpd.GeoDataFrame(results)
-    if gdf.empty:
-        raise ValueError
-
-    gdf['geometry'] = gdf['geometry'].apply(lambda x: LineString(x['coordinates']))
-    gdf.set_geometry('geometry', inplace=True)
-    gdf.set_crs(epsg=4326, inplace=True)
-
-    return gdf
-
-
-def delete_mongodb(table_name):
-    db.gis.get_collection(table_name).drop()
+    rec_points = generate_recursive_points()
+    print("Recursive points are added : \n"
+          f"{rec_points.head(10)}")
 
 
 if __name__ == '__main__':
-    # app
-    dummy = DummyDataManipulator()
-    puller = DataStore()
+    try:
+        assert db.gis.lines.count_documents({}) > 0
+    except AssertionError:
+        graph = download_osm_data()
 
-    print("Finished")
+    generate_points()

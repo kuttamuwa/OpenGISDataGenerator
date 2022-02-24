@@ -1,3 +1,4 @@
+import platform
 from pymongo import MongoClient
 from sqlalchemy import create_engine
 
@@ -15,9 +16,12 @@ if_exists = dbconf.if_exists
 pg_conn_string = f"postgresql+psycopg2://{dbconf.username}:{dbconf.password}@{dbconf.host}:{dbconf.port}/{dbconf.db}"
 
 if mongo_choice == 1:
-    db = MongoClient(username=dbconf.username,
-                     password=dbconf.password,
-                     host=dbconf.host,
-                     port=dbconf.port)
+    if platform.system() == 'Windows':
+        db = MongoClient()
+    else:
+        db = MongoClient(username=dbconf.username,
+                         password=dbconf.password,
+                         host=dbconf.host,
+                         port=dbconf.port)
 elif mongo_choice == 0:
     db = create_engine(pg_conn_string)
