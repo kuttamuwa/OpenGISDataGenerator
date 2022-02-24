@@ -12,10 +12,13 @@ pois_polygon_table_name = dbconf.pois_polygon_table_name
 
 if_exists = dbconf.if_exists
 
-conn_string = f"postgresql+psycopg2://{dbconf.username}:{dbconf.password}@{dbconf.host}:{dbconf.port}/{dbconf.db}"
+pg_conn_string = f"postgresql+psycopg2://{dbconf.username}:{dbconf.password}@{dbconf.host}:{dbconf.port}/{dbconf.db}"
 
 if mongo_choice == 1:
     db = MongoClient()
 elif mongo_choice == 0:
-    db = create_engine(conn_string)
+    db = create_engine(username=dbconf.username,
+                       password=dbconf.password,
+                       host=dbconf.host,
+                       port=dbconf.port)
 

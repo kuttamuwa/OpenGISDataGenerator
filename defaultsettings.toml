@@ -47,10 +47,10 @@ max_age = 70
 [DB]
 mongo=1  # 0 disable 1 : enable
 host = "127.0.0.1"
-username = "postgres"
-password = "figo1190"
-db = 'postgis_30_sample'
-port = 5432
+username = "locationchest"
+password = "locationchest!db"
+db = 'gis'
+port = 27017
 points_table_name = 'points'
 lines_table_name = 'lines'
 poi_points_table_name = 'poi_points'
