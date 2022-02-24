@@ -15,7 +15,7 @@ poi_tags = """{"amenity": ["restaurant", "pub", "hotel",
 
 [OSM_SETTINGS]
 network_type = "all_private"  # {"all_private", "all", "bike", "drive", "drive_service", "walk"}
-use_osmnx = "True"  # Downloads data if set True
+use_osmnx = "False"  # Downloads data if set True
 
 [STATIC_POINTS]
 run = 1

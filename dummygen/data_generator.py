@@ -89,7 +89,6 @@ class DummyDataManipulator:
     @classmethod
     def generate_points_along_line(cls, lines: gpd.GeoDataFrame):
         """
-        Downloads OSM data if reload = True
         Generate points along lines and sum up.
 
         :param lines:
