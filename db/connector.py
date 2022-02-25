@@ -13,7 +13,7 @@ pois_polygon_table_name = dbconf.pois_polygon_table_name
 
 if_exists = dbconf.if_exists
 
-pg_conn_string = f"postgresql+psycopg2://{dbconf.username}:{dbconf.password}@{dbconf.host}:{dbconf.port}/{dbconf.db}"
+pg_conn_string = f"postgresql+psycopg2://postgres:figo1190@localhost:5432/riskreferencedb"
 
 if mongo_choice == 1:
     if platform.system() == 'Windows':
