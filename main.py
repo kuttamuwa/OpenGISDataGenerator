@@ -106,7 +106,8 @@ def read_lines(column_list=('osmid', 'name', 'length', 'geometry')):
 
 
 def read_points(column_list=('geometry', 'DTYPE', 'Age',
-                             'Quality', 'Gender', 'First Name', 'Last Name',
+                             'Quality', 'Gender',
+                             # 'First Name', 'Last Name',
                              'Timestamp', 'PersonID')):
     results = []
     for v in db.gis.points.find():
@@ -183,8 +184,8 @@ def add_dummy_fields(points: gpd.GeoDataFrame, add_time=True, add_person_id=True
     points['Quality'] = [random.randint(0, 5) for _ in range(len(points))]
     points['Gender'] = [random.choice([Gender.MALE, Gender.FEMALE]).name for _ in range(len(points))]
 
-    points['First Name'] = [dummy_person.first_name() for _ in range(len(points))]
-    points['Last Name'] = [dummy_person.last_name() for _ in range(len(points))]
+    # points['First Name'] = [dummy_person.first_name() for _ in range(len(points))]
+    # points['Last Name'] = [dummy_person.last_name() for _ in range(len(points))]
 
     if add_time:
         points['Timestamp'] = [random_date() for _ in range(len(points))]
@@ -207,8 +208,8 @@ def add_dummy_fields_fn(x, add_timestamp=True):
     x['Gender'] = _gender.name
     x['PersonID'] = uuid.uuid4()
 
-    x['First Name'] = dummy_person.first_name(gender=_gender)
-    x['Last Name'] = dummy_person.last_name(gender=_gender)
+    # x['First Name'] = dummy_person.first_name(gender=_gender)
+    # x['Last Name'] = dummy_person.last_name(gender=_gender)
 
     if add_timestamp:
         print("Will added timestamp")
@@ -267,8 +268,8 @@ def generate_points_along_line():
             p = {
                 'geometry': l.geometry.interpolate(d),
                 'Timestamp': start_date + timedelta(minutes=float(d // dynamic_settings.avg_speed)),
-                'First Name': fname,
-                'Last Name': lname,
+                # 'First Name': fname,
+                # 'Last Name': lname,
                 'Gender': _gender.name,
                 'PersonID': pid,
                 'Quality': q,
